@@ -4,7 +4,7 @@ This project is a joint work with Zain Saleem, James Stokes, and Brajesh Gupt.
 
 The environment that were used can be created by running
 
->> conda env create -f ./vmc_rusty.yml
+> conda env create -f ./vmc_rusty.yml
 
 or loading packages individually. 
 
