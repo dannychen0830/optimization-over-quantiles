@@ -62,7 +62,8 @@ class RNNwavefunction(object):
                 self.outputdim = self.inputdim
                 self.numsamples = numsamples
 
-                samples = [[[] for nx in range(self.Nx)] for ny in range(self.Ny)]
+                "changed this"
+                samples = [[[] for ny in range(self.Ny)] for nx in range(self.Nx)]
                 rnn_states = {}
                 inputs = {}
 
@@ -162,7 +163,8 @@ class RNNwavefunction(object):
                 inputs[str(nx) + str(ny)] = tf.compat.v1.zeros((self.numsamples, inputdim), dtype=tf.compat.v1.float64)
 
             with tf.compat.v1.variable_scope(self.scope, reuse=tf.compat.v1.AUTO_REUSE):
-                probs = [[[] for nx in range(self.Nx)] for ny in range(self.Ny)]
+                " changed this line"
+                probs = [[[] for ny in range(self.Ny)] for nx in range(self.Nx)]
 
                 # Begin estimation of log probs
                 for ny in range(self.Ny):
