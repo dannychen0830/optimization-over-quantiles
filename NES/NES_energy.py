@@ -2,9 +2,10 @@ import numpy as np
 import netket as nk
 
 
+# define the MIS hamiltonian
 def MIS_energy(cf, adj):
     # construct the MIS hamiltonian
-    J = np.eye(adj.shape[0]) - cf.penalty*adj
+    J = cf.penalty*adj - np.eye(adj.shape[0])
 
     # define tools:
     # size of the graph
@@ -31,5 +32,3 @@ def MIS_energy(cf, adj):
             if J[i, j] != 0.:
                 ha += J[i, j] * nk.operator.LocalOperator(hi, [np.kron(b, b)], [[i, j]])
     return ha, g, hi
-
-

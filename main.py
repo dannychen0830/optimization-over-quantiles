@@ -8,6 +8,7 @@ from data import load_data
 from NES.NES_main import run_netket
 
 
+# main function, runs the corresponding algorithm by directing to the right folder
 def main(cf, seed):
     # create random graph as data (reserve the possibility of importing data)
     data = load_data(cf)
@@ -15,6 +16,7 @@ def main(cf, seed):
     bound = None
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
+
     if cf.framework in ["NES"]:
         exp_name, score, time_elapsed = run_netket(cf, data, seed)
     else:
@@ -23,8 +25,11 @@ def main(cf, seed):
 
 
 if __name__ == '__main__':
+    # parse the command line argument
     cf, unparsed = get_config()
     print(cf)
+
+    # repeat multiple times if requested with
     for num_trials in range(cf.num_trials):
         seed = cf.random_seed + num_trials
         np.random.seed(seed)

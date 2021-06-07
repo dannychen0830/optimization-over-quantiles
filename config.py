@@ -58,6 +58,7 @@ misc_arg.add_argument('--random_seed', '-r', type=int, default=600, help='Random
 misc_arg.add_argument('--present', type=str, default="boxplot")
 misc_arg.add_argument('--input_data', type=str2bool, default=False, help='Indicate whether input data is needed')
 misc_arg.add_argument('--energy_plot', type=str2bool, default=False, help='Show the plot of energy vs. iteration')
+misc_arg.add_argument('--print_assignment', type=str2bool, default=False, help='Show the final node assignment')
 
 
 def get_config():
