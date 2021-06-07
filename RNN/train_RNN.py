@@ -17,7 +17,7 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
     Returns: The local energies that correspond to the "samples"
     Inputs:
     - samples: (numsamples, Nx,Ny)
-    - Jz: (Nx,Ny) np array
+    - Jz: (Nx,Ny) np array *** changed: Jz is now the adjacency matrix
     - Bx: float
     - queue_samples: ((Nx*Ny+1)*numsamples, Nx,Ny) an empty allocated np array to store the non diagonal elements
     - log_probs_tensor: A TF tensor with size (None)
@@ -32,35 +32,46 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
 
     local_energies = np.zeros((numsamples), dtype=np.float64)
 
-    for i in range(Nx - 1):  # diagonal elements (right neighbours)
-        values = samples[:, i] + samples[:, i + 1]
-        valuesT = np.copy(values)
-        valuesT[values == 2] = +1  # If both spins are up
-        valuesT[values == 0] = +1  # If both spins are down
-        valuesT[values == 1] = -1  # If they are opposite
+    # assume linear samples for now
+    for n in range(numsamples):
+        for i in range(N-1):
+            if samples[n,i,0] == 1:
+                local_energies[n] -= 1 # try to maximize set, so reward if in the set
+            for j in range(i+1, N):
+                if Jz[i,j] ==  1 and samples[n,i,0] + samples[n,j,0] == 2:
+                    local_energies[n] += Bx # don't like adjacent nodes together, penalize by Bx
 
-        local_energies += np.sum(valuesT * (-Jz[i, :]), axis=1)
 
-    for i in range(
-            Ny - 1):  # diagonal elements (upward neighbours (or downward, it depends on the way you see the lattice :)))
-        values = samples[:, :, i] + samples[:, :, i + 1]
-        valuesT = np.copy(values)
-        valuesT[values == 2] = +1  # If both spins are up
-        valuesT[values == 0] = +1  # If both spins are down
-        valuesT[values == 1] = -1  # If they are opposite
-
-        local_energies += np.sum(valuesT * (-Jz[:, i]), axis=1)
-
-    queue_samples[0] = samples  # storing the diagonal samples
-
-    if Bx != 0:
-        for i in range(Nx):  # Non-diagonal elements
-            for j in range(Ny):
-                valuesT = np.copy(samples)
-                valuesT[:, i, j][samples[:, i, j] == 1] = 0  # Flip
-                valuesT[:, i, j][samples[:, i, j] == 0] = 1  # Flip
-
-                queue_samples[i * Ny + j + 1] = valuesT
+    # commented: old code for energy
+    # for i in range(Nx - 1):  # diagonal elements (right neighbours)
+    #     values = samples[:, i] + samples[:, i + 1]
+    #     valuesT = np.copy(values)
+    #     valuesT[values == 2] = +1  # If both spins are up
+    #     valuesT[values == 0] = +1  # If both spins are down
+    #     valuesT[values == 1] = -1  # If they are opposite
+    #
+    #     local_energies += np.sum(valuesT * (-Jz[i, :]), axis=1)
+    #
+    # for i in range(
+    #         Ny - 1):  # diagonal elements (upward neighbours (or downward, it depends on the way you see the lattice :)))
+    #     values = samples[:, :, i] + samples[:, :, i + 1]
+    #     valuesT = np.copy(values)
+    #     valuesT[values == 2] = +1  # If both spins are up
+    #     valuesT[values == 0] = +1  # If both spins are down
+    #     valuesT[values == 1] = -1  # If they are opposite
+    #
+    #     local_energies += np.sum(valuesT * (-Jz[:, i]), axis=1)
+    #
+    # queue_samples[0] = samples  # storing the diagonal samples
+    #
+    # if Bx != 0:
+    #     for i in range(Nx):  # Non-diagonal elements
+    #         for j in range(Ny):
+    #             valuesT = np.copy(samples)
+    #             valuesT[:, i, j][samples[:, i, j] == 1] = 0  # Flip
+    #             valuesT[:, i, j][samples[:, i, j] == 0] = 1  # Flip
+    #
+    #             queue_samples[i * Ny + j + 1] = valuesT
 
     # Calculating log_probs from samples
     # Do it in steps
@@ -89,7 +100,7 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
 
 
 # ---------------- Running VMC with 2DRNNs -------------------------------------
-def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+2, num_units=50, numsamples=500,
+def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+1, num_units=50, numsamples=500,
                learningrate=5e-3, seed=111):
     # Seeding
     tf.compat.v1.reset_default_graph()
@@ -104,7 +115,7 @@ def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+2, num_
     Nx = systemsize_x  # x dim
     Ny = systemsize_y  # y dim
 
-    Jz = +np.ones((Nx, Ny))  # Ferromagnetic couplings
+    Jz = np.array([[0,1,0,1], [1,0,1,0], [0,1,0,1], [1,0,1,0]])
     lr = np.float64(learningrate)
 
     input_dim = 2  # Dimension of the Hilbert space for each site (here = 2, up or down)
@@ -241,4 +252,11 @@ def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+2, num_
                 lr_adapted = lr * (1 + it / 5000) ** (-1)
                 # Optimize
                 sess.run(optstep, feed_dict={Eloc: local_energies, samp: samples, learningrate_placeholder: lr_adapted})
+
+    fin_samp = sess.run(samples_)
+    assign = np.zeros(fin_samp.shape[1])
+    for i in range(fin_samp.shape[1]):
+        assign[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
+    print(assign)
+
     return meanEnergy, varEnergy
