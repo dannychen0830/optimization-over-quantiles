@@ -27,6 +27,7 @@ net_arg.add_argument('--model_name', '-m', type=str, \
                      default='rbm', help='Model architecture')
 net_arg.add_argument('--param_init', type=float, default=0.01, help='Model parameter initialization')
 net_arg.add_argument('--penalty', type=float, default=1, help='During MIS, choose weighting of penalty term')
+net_arg.add_argument('--num_units', type=int, default=100, help='the number of units in an RNN layer')
 
 # Data
 data_arg = add_argument_group('Data')
@@ -49,7 +50,7 @@ train_arg.add_argument('--decay_factor', type=float, default=1.0, help='Training
 # Misc
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--framework', '-fr', type=str, \
-                      choices= ["NES"], \
+                      choices= ["NES", "RNN"], \
                       default='NES', help='Options for algorithms')
 misc_arg.add_argument('--dir', type=str, default='')
 misc_arg.add_argument('--num_gpu', type=int, default=0)

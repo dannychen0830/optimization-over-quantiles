@@ -1,0 +1,65 @@
+		Graph
+==========================================
+IO time:			0.000241041
+Filename:			input.graph
+|-Nodes:			19
+|-Edges:			112
+
+		Configuration
+==========================================
+Population size:		50
+Repetitions:			50
+Time limit:			1000
+---
+KaHIP mode:			0
+---
+Seed:				0
+Base imbalance:			0.03
+Random imbalance:		1
+---
+Tournament size:		2
+---
+Mutation rate:			1
+---
+Use Multiway-VC:		0
+Multiway blocks:		64
+---
+Apply all reductions:		1
+Reductions threshold:		350
+---
+Insert threshold:		150
+Pool threshold:			250
+---
+ILS iterations:			15000
+---
+No. of partitions:		10
+No. of separators:		10
+No. of k-partitions:		10
+No. of k-separators:		10
+
+0		Combine reduction	0	8	0.027859
+
+		Statistics
+==========================================
+Total time:			0.0283229
+Evolution time:			0.0279391
+Number of rounds:		0
+Number of repetitions:		0
+
+Operator	Times selected	Improvements	Avg. time	Avg. improv
+--------------------------------------------------------------------------------
+Vertex cover	0		0		0	0
+Node separator	0		0		0	0
+Multiway	0		0		0	0
+
+		Best
+==========================================
+Size:				8
+Time found:			0.027895
+Operator:			Combine reduction
+Repetition number:		0
+Round number:			0
+
+checking solution ...
+done ...
+Independent set has size 8

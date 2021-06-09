@@ -1,19 +1,15 @@
 import numpy as np
+import networkx as nx
 
 
 # if no data is specified, generate a random graph as a substitute
-def random_graph(cf):
-    # randomly generate an adjacency matrix (directed)
-    adj = np.random.randint(2, size=[cf.input_size, cf.input_size])
-    # add transpose and mod 2 to make it undirected
-    adj = (adj.transpose() + adj)//2
-    # omit self loops
-    np.fill_diagonal(adj, 0)
-    return adj
+def random_graph(cf, seed):
+    G = nx.gnp_random_graph(cf.input_size, 0.1, seed)
+    return nx.to_numpy_array(G)
 
 
 # either load data if available or generate a random graph
-def load_data(cf):
+def load_data(cf, seed):
     # if input specified, load that
     if cf.input_data:
         data = np.loadtxt("data.txt", dtype=int)
@@ -27,4 +23,4 @@ def load_data(cf):
         return data
     # otherwise, generate random graph
     else:
-        return random_graph(cf)
+        return random_graph(cf, seed)
