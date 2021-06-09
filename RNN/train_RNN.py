@@ -7,8 +7,8 @@ import random
 import time
 from math import ceil
 
-from RNN_wave import RNNwavefunction
-from MDRNNcell import MDRNNcell
+from RNN.RNN_wave import RNNwavefunction
+from RNN.MDRNNcell import MDRNNcell
 
 
 tf.compat.v1.compat.v1.logging.set_verbosity(tf.compat.v1.compat.v1.logging.ERROR)  # stop displaying tensorflow warnings
@@ -43,10 +43,10 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
             if samples[n,i,0] == 1:
                 local_energies[n] -= 1 # try to maximize set, so reward if in the set
             # else:
-            #     local_energies[n] += 1
+            #     local_energies[n] += 1 # is this allowed? Penalizing for not being in the set?
             for j in range(N):
                 if Jz[i,j] == 1 and samples[n,i,0] + samples[n,j,0] == 2:
-                    local_energies[n] += Bx # don't like adjacent nodes together, penalize by Bx
+                    local_energies[n] += Bx # adjacent nodes shouldn't be in the set, penalize!
                 # else:
                 #     local_energies[n] += Bx
     return local_energies
@@ -57,7 +57,7 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
 
 # ---------------- Running VMC with 2DRNNs -------------------------------------
 def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsamples=500,
-               learningrate=5e-3, seed=666):
+               learningrate=5e-3, seed=666, print_assignment=False):
     # Seeding
     tf.compat.v1.reset_default_graph()
     random.seed(seed)  # `python` built-in pseudo-random generator
@@ -168,6 +168,7 @@ def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsam
             log_probs = np.zeros((Nx * Ny + 1) * numsamples,
                                  dtype=np.float64)  # Array to store the log_probs of all the diagonal and non diagonal matrix elements (We create it here for memory efficiency as we do not want to allocate it at each training step)
 
+            start_time = time.time()
             for it in range(len(meanEnergy), numsteps + 1):
 
                 #                 print("sampling started")
@@ -187,8 +188,8 @@ def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsam
                 meanEnergy.append(meanE)
                 varEnergy.append(varE)
 
-                if it % 10 == 0:
-                    print('mean(E): {0}, var(E): {1}, #samples {2}, #Step {3} \n\n'.format(meanE, varE, numsamples, it))
+                # if it % 10 == 0:
+                #     print('mean(E): {0}, var(E): {1}, #samples {2}, #Step {3} \n\n'.format(meanE, varE, numsamples, it))
 
                 # Comment if you dont want to save or if saving is not working
                 # if it % 500 == 0:  # 500 can be changed to suite your chosen number of iterations and to avoid slow down by saving the model too often
@@ -207,23 +208,25 @@ def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsam
                 lr_adapted = lr * (1 + it / 5000) ** (-1)
                 # Optimize
                 sess.run(optstep, feed_dict={Eloc: local_energies, samp: samples, learningrate_placeholder: lr_adapted})
+            end_time = time.time()
 
-    fin_samp = sess.run(samples_)
-    assignment = np.zeros(fin_samp.shape[1])
-    for i in range(fin_samp.shape[1]):
-        assignment[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
-    print(assignment)
+    if print_assignment:
+        fin_samp = sess.run(samples_)
+        assignment = np.zeros(fin_samp.shape[1])
+        for i in range(fin_samp.shape[1]):
+            assignment[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
+        print(assignment)
 
-    G = nx.from_numpy_matrix(Jz)
-    pos = nx.circular_layout(G)
-    color = []
-    for i in range(Nx*Ny):
-        if round(assignment[i]) == 1:
-            color.append('red')
-        else:
-            color.append('blue')
-    nx.draw(G, pos=pos, node_color=color)
-    plt.title("Node Assignment")
-    plt.show()
+        G = nx.from_numpy_matrix(Jz)
+        pos = nx.circular_layout(G)
+        color = []
+        for i in range(Nx*Ny):
+            if round(assignment[i]) == 1:
+                color.append('red')
+            else:
+                color.append('blue')
+        nx.draw(G, pos=pos, node_color=color)
+        plt.title("Node Assignment")
+        plt.show()
 
-    return meanEnergy, varEnergy
+    return meanEnergy, varEnergy, end_time-start_time
