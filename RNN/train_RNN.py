@@ -1,14 +1,19 @@
 import tensorflow as tf
+import networkx as nx
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import random
+import time
 from math import ceil
 
 from RNN_wave import RNNwavefunction
 from MDRNNcell import MDRNNcell
 
+
 tf.compat.v1.compat.v1.logging.set_verbosity(tf.compat.v1.compat.v1.logging.ERROR)  # stop displaying tensorflow warnings
 tf.compat.v1.disable_v2_behavior()
+
 
 # Loading Functions --------------------------
 def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_tensor, samples_placeholder, log_probs,
@@ -37,62 +42,13 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
         for i in range(N-1):
             if samples[n,i,0] == 1:
                 local_energies[n] -= 1 # try to maximize set, so reward if in the set
-            for j in range(i+1, N):
-                if Jz[i,j] ==  1 and samples[n,i,0] + samples[n,j,0] == 2:
+            # else:
+            #     local_energies[n] += 1
+            for j in range(N):
+                if Jz[i,j] == 1 and samples[n,i,0] + samples[n,j,0] == 2:
                     local_energies[n] += Bx # don't like adjacent nodes together, penalize by Bx
-
-
-    # commented: old code for energy
-    # for i in range(Nx - 1):  # diagonal elements (right neighbours)
-    #     values = samples[:, i] + samples[:, i + 1]
-    #     valuesT = np.copy(values)
-    #     valuesT[values == 2] = +1  # If both spins are up
-    #     valuesT[values == 0] = +1  # If both spins are down
-    #     valuesT[values == 1] = -1  # If they are opposite
-    #
-    #     local_energies += np.sum(valuesT * (-Jz[i, :]), axis=1)
-    #
-    # for i in range(
-    #         Ny - 1):  # diagonal elements (upward neighbours (or downward, it depends on the way you see the lattice :)))
-    #     values = samples[:, :, i] + samples[:, :, i + 1]
-    #     valuesT = np.copy(values)
-    #     valuesT[values == 2] = +1  # If both spins are up
-    #     valuesT[values == 0] = +1  # If both spins are down
-    #     valuesT[values == 1] = -1  # If they are opposite
-    #
-    #     local_energies += np.sum(valuesT * (-Jz[:, i]), axis=1)
-    #
-    # queue_samples[0] = samples  # storing the diagonal samples
-    #
-    # if Bx != 0:
-    #     for i in range(Nx):  # Non-diagonal elements
-    #         for j in range(Ny):
-    #             valuesT = np.copy(samples)
-    #             valuesT[:, i, j][samples[:, i, j] == 1] = 0  # Flip
-    #             valuesT[:, i, j][samples[:, i, j] == 0] = 1  # Flip
-    #
-    #             queue_samples[i * Ny + j + 1] = valuesT
-
-    # Calculating log_probs from samples
-    # Do it in steps
-
-    len_sigmas = (N + 1) * numsamples
-    steps = ceil(
-        len_sigmas / 25000)  # Get a maximum of 25000 configurations in batch size to not allocate too much memory
-
-    queue_samples_reshaped = np.reshape(queue_samples, [(N + 1) * numsamples, Nx, Ny])
-    for i in range(steps):
-        if i < steps - 1:
-            cut = slice((i * len_sigmas) // steps, ((i + 1) * len_sigmas) // steps)
-        else:
-            cut = slice((i * len_sigmas) // steps, len_sigmas)
-        log_probs[cut] = sess.run(log_probs_tensor, feed_dict={samples_placeholder: queue_samples_reshaped[cut]})
-        # print(i)
-
-    log_probs_reshaped = np.reshape(log_probs, [N + 1, numsamples])
-    for j in range(numsamples):
-        local_energies[j] += -Bx * np.sum(np.exp(0.5 * log_probs_reshaped[1:, j] - 0.5 * log_probs_reshaped[0, j]))
-
+                # else:
+                #     local_energies[n] += Bx
     return local_energies
 
 
@@ -100,8 +56,8 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
 
 
 # ---------------- Running VMC with 2DRNNs -------------------------------------
-def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+1, num_units=50, numsamples=500,
-               learningrate=5e-3, seed=111):
+def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsamples=500,
+               learningrate=5e-3, seed=666):
     # Seeding
     tf.compat.v1.reset_default_graph()
     random.seed(seed)  # `python` built-in pseudo-random generator
@@ -114,8 +70,7 @@ def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+1, num_
 
     Nx = systemsize_x  # x dim
     Ny = systemsize_y  # y dim
-
-    Jz = np.array([[0,1,0,1], [1,0,1,0], [0,1,0,1], [1,0,1,0]])
+    Jz = nx.to_numpy_array(nx.gnp_random_graph(Nx*Ny, 0.1, seed=seed))
     lr = np.float64(learningrate)
 
     input_dim = 2  # Dimension of the Hilbert space for each site (here = 2, up or down)
@@ -254,9 +209,21 @@ def run_2DTFIM(numsteps=2 * 10 ** 4, systemsize_x=5, systemsize_y=5, Bx=+1, num_
                 sess.run(optstep, feed_dict={Eloc: local_energies, samp: samples, learningrate_placeholder: lr_adapted})
 
     fin_samp = sess.run(samples_)
-    assign = np.zeros(fin_samp.shape[1])
+    assignment = np.zeros(fin_samp.shape[1])
     for i in range(fin_samp.shape[1]):
-        assign[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
-    print(assign)
+        assignment[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
+    print(assignment)
+
+    G = nx.from_numpy_matrix(Jz)
+    pos = nx.circular_layout(G)
+    color = []
+    for i in range(Nx*Ny):
+        if round(assignment[i]) == 1:
+            color.append('red')
+        else:
+            color.append('blue')
+    nx.draw(G, pos=pos, node_color=color)
+    plt.title("Node Assignment")
+    plt.show()
 
     return meanEnergy, varEnergy
