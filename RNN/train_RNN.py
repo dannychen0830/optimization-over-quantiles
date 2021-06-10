@@ -57,7 +57,7 @@ def Ising2D_local_energies(Jz, Bx, Nx, Ny, samples, queue_samples, log_probs_ten
 
 # ---------------- Running VMC with 2DRNNs -------------------------------------
 def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsamples=500,
-               learningrate=5e-3, seed=666, print_assignment=False):
+               learningrate=5e-3, seed=666, print_assignment=False, Jz=None):
     # Seeding
     tf.compat.v1.reset_default_graph()
     random.seed(seed)  # `python` built-in pseudo-random generator
@@ -70,7 +70,8 @@ def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsam
 
     Nx = systemsize_x  # x dim
     Ny = systemsize_y  # y dim
-    Jz = nx.to_numpy_array(nx.gnp_random_graph(Nx*Ny, 0.1, seed=seed))
+    if Jz is None:
+        Jz = nx.to_numpy_array(nx.gnp_random_graph(Nx*Ny, p, seed=seed))
     lr = np.float64(learningrate)
 
     input_dim = 2  # Dimension of the Hilbert space for each site (here = 2, up or down)
@@ -210,23 +211,27 @@ def run_2DTFIM(numsteps, systemsize_x, systemsize_y, Bx=+1, num_units=50, numsam
                 sess.run(optstep, feed_dict={Eloc: local_energies, samp: samples, learningrate_placeholder: lr_adapted})
             end_time = time.time()
 
-    if print_assignment:
-        fin_samp = sess.run(samples_)
-        assignment = np.zeros(fin_samp.shape[1])
-        for i in range(fin_samp.shape[1]):
-            assignment[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
-        print(assignment)
 
-        G = nx.from_numpy_matrix(Jz)
-        pos = nx.circular_layout(G)
-        color = []
-        for i in range(Nx*Ny):
-            if round(assignment[i]) == 1:
-                color.append('red')
-            else:
-                color.append('blue')
+    MIS_size = 0
+    fin_samp = sess.run(samples_)
+    assignment = np.zeros(fin_samp.shape[1])
+    for i in range(fin_samp.shape[1]):
+        assignment[i] = np.sum(fin_samp[:,i,0])/fin_samp.shape[0]
+
+    G = nx.from_numpy_matrix(Jz)
+    pos = nx.circular_layout(G)
+    color = []
+    for i in range(Nx*Ny):
+        if round(assignment[i]) == 1:
+            MIS_size += 1
+            color.append('red')
+        else:
+            color.append('blue')
+
+    if print_assignment:
+        print(assignment)
         nx.draw(G, pos=pos, node_color=color)
         plt.title("Node Assignment")
         plt.show()
 
-    return meanEnergy, varEnergy, end_time-start_time
+    return meanEnergy, varEnergy, end_time-start_time, assignment, MIS_size

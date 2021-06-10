@@ -21,7 +21,7 @@ from RNN.train_RNN import run_2DTFIM
 # numsteps = 2*10**4
 
 def run_RNN(cf, seed):
-    RNNEnergy, varRNNEnergy, time_elapsed = run_2DTFIM(numsteps=cf.num_of_iterations, systemsize_x=cf.input_size,
+    RNNEnergy, varRNNEnergy, time_elapsed, assignment, size = run_2DTFIM(numsteps=cf.num_of_iterations, systemsize_x=cf.input_size,
                                                        systemsize_y=1, Bx=cf.penalty, num_units=cf.num_units,
                                                        numsamples=cf.batch_size, learningrate=cf.learning_rate,
                                                        seed=seed, print_assignment=cf.print_assignment)
