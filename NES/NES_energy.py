@@ -33,7 +33,7 @@ def MIS_energy(cf, adj):
                 ha += J[i, j] * nk.operator.LocalOperator(hi, [np.kron(b, b)], [[i, j]])
     return ha, g, hi
 
-def MIS_energy(adj, penalty):
+def MIS_energy_2(adj, penalty):
     # construct the MIS hamiltonian
     J = penalty*adj - np.eye(adj.shape[0])
 

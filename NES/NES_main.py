@@ -4,7 +4,9 @@ import time
 import json
 import numpy as np
 import matplotlib.pyplot as plt
+
 from NES.NES_energy import MIS_energy
+from NES.NES_energy import MIS_energy_2
 
 
 # run NES using netket
@@ -104,7 +106,7 @@ def run_netket(cf, data, seed):
     return exp_name, score, time_elapsed
 
 
-def run_netket(data, num_of_iterations, batch_size, seed, pb_type="maxindp", model_name="rbm", optimizer="sgd",
+def run_netket_2(data, num_of_iterations, batch_size, seed, pb_type="maxindp", model_name="rbm", optimizer="sgd",
                use_sr=True, width=1, param_init=0.01, learning_rate=0.01, decay_factor=1, use_iterative=True,
                use_cholesky=True, penalty=1,energy_plot=False, print_assignment=False):
 
@@ -112,7 +114,7 @@ def run_netket(data, num_of_iterations, batch_size, seed, pb_type="maxindp", mod
 
     # build objective
     if pb_type == "maxindp":
-        hamiltonian,graph,hilbert = MIS_energy(data, penalty)
+        hamiltonian,graph,hilbert = MIS_energy_2(data, penalty)
     if pb_type == "maxcut":
         print('max cut not implemented yet')
         hamiltonian, graph, hilbert = MIS_energy(data, penalty)
@@ -203,4 +205,4 @@ def run_netket(data, num_of_iterations, batch_size, seed, pb_type="maxindp", mod
     # output result
 
     time_elapsed = end_time - start_time
-    return MIS_size, time_elapsed
+    return MIS_size, time_elapsed, assignment
