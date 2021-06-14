@@ -60,25 +60,26 @@ def run_netket(cf, data, seed):
     start_time = time.time()
     gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations)
     end_time = time.time()
-    result = gs.get_observable_stats()
 
     # plot the final node assignment if specified
+    MIS_size = 0
+    gen_sample = sampler.generate_samples(n_samples=1)
+    assignment = np.zeros(gen_sample.shape[2])
+    for i in range(gen_sample.shape[2]):
+        assignment[i] = sum(gen_sample[0, :, i]) / gen_sample.shape[1]
+
+    G = nx.from_numpy_matrix(data)
+    pos = nx.circular_layout(G)
+    color = []
+    for i in range(cf.input_size):
+        if assignment[i] > 0:
+            MIS_size += 1
+            color.append('red')
+        else:
+            color.append('blue')
+
     if cf.print_assignment:
-        gen_sample = sampler.generate_samples(n_samples=1)
-        assignment = np.zeros(gen_sample.shape[2])
-        for i in range(gen_sample.shape[2]):
-            assignment[i] = sum(gen_sample[0,:,i])/gen_sample.shape[1]
-
         print(assignment)
-
-        G = nx.from_numpy_matrix(data)
-        pos = nx.circular_layout(G)
-        color = []
-        for i in range(cf.input_size):
-            if assignment[i] > 0:
-                color.append('red')
-            else:
-                color.append('blue')
         nx.draw(G, pos=pos, node_color=color)
         plt.title("Node Assignment")
         plt.show()
@@ -99,11 +100,10 @@ def run_netket(cf, data, seed):
         plt.ylabel('mean energy')
         plt.show()
 
-    # output result
-    score = -result['Energy'].mean.real
+        # output result
+
     time_elapsed = end_time - start_time
-    exp_name = cf.framework + str(cf.input_size)
-    return exp_name, score, time_elapsed
+    return MIS_size, time_elapsed, assignment
 
 
 def run_netket_2(data, num_of_iterations, batch_size, seed, pb_type="maxindp", model_name="rbm", optimizer="sgd",
