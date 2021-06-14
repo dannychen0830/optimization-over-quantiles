@@ -23,13 +23,20 @@ def main(cf, seed):
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
 
-    if cf.framework in ["NES"]:
-        exp_name, score, time_elapsed = run_netket(cf, data, seed)
-    if cf.framework in ["RNN"]:
-        exp_name, score, time_elapsed = run_RNN(cf, seed)
+    if cf.framework == "NES":
+        MIS_size, time_elapsed, assignment = run_netket(cf, data, seed)
+        if not check_solution(data, (assignment + 1) / 2):
+            MIS_size = 0
+    elif cf.framework == "RNN":
+        MIS_size, time_elapsed, assignment = run_RNN(cf, data, seed)
+        if not check_solution(data, assignment):
+            MIS_size = 0
+    elif cf.framework == "KaMIS":
+        MIS_size, time_elapsed = run_KaMIS(data)
     else:
         raise Exception("unknown framework")
-    return exp_name, score, time_elapsed, bound
+
+    return MIS_size, time_elapsed
 
 
 # given a graph (adjcency matrix) and independent set assignment, check if the assignment is valid
@@ -58,18 +65,79 @@ def single_run():
     print('finished')
 
 
-def comparison():
+def multiple_run_size(overwrite=False):
+    cf, unparsed = get_config()
+
     "For multiple runs and comparisons"
     # varying size
     min_size = 5
     d_size = 1
-    max_size = 8
+    max_size = 6
     num = int((max_size - min_size) / d_size)
 
+    num_rep = 1
+    seed = 666
+
+    MIS_size = np.zeros(num)
+    var_MIS_size = np.zeros(num)
+    time_elpased = np.zeros(num)
+    var_time_elapsed = np.zeros(num)
+
+    small_count = 0
+    big_count = 0
+
+    for size in range(min_size, max_size, d_size):
+        cf.input_size = size
+
+        set_size = np.zeros(num_rep)
+        duration = np.zeros(num_rep)
+
+        for rep in range(num_rep):
+            seed = seed + small_count
+            np.random.seed(seed)
+            tf.compat.v1.random.set_random_seed(seed)
+            random.seed(seed)
+
+            set_size[rep], duration[rep] = main(cf, seed)
+
+            small_count += 1
+
+        MIS_size[big_count] = np.mean(set_size)
+        var_MIS_size[big_count] = np.var(set_size)
+        time_elpased[big_count] = np.mean(duration)
+        var_time_elapsed[big_count] = np.var(duration)
+
+        big_count += 1
+
+        print("Size " + str(size) + " done!")
+
+    if not overwrite:
+        append_file('./output/mean_size.npy', MIS_size)
+        append_file('./output/var_size.npy', var_MIS_size)
+        append_file('./output/mean_time.npy', time_elpased)
+        append_file('./output/var_time.npy', var_time_elapsed)
+    else:
+        np.save('./output/mean_size.npy', MIS_size)
+        np.save('./output/var_size.npy', var_MIS_size)
+        np.save('./output/mean_time.npy', time_elpased)
+        np.save('./output/var_time.npy', var_time_elapsed)
+
+
+def append_file(file, data):
+    temp = np.load(file)
+    if temp.ndim == 1:
+        np.save(file, np.concatenate(([temp], [data])))
+    else:
+        np.save(file, np.concatenate((temp, [data])))
+
+
+def comparison_density(size):
+
     # varying density
-    min_p = 0
+    min_p = 0.4
     dp = 0.1
-    max_p = 0.9
+    max_p = 0.6
+    num = int(np.ceil((max_p-min_p)/dp))
 
     num_rep = 1
     seed = 666
@@ -82,33 +150,36 @@ def comparison():
     small_count = 0
     big_count = 0
 
-    for size in range(min_size, max_size, d_size):
-        # for p in range(min_p, max_p, dp):
+    for p in np.arange(min_p,max_p,dp):
 
         set_size = np.zeros(shape=[3, num_rep])
         duration = np.zeros(shape=[3, num_rep])
 
         for rep in range(num_rep):
             seed = seed + small_count
-            p = 0.3
             np.random.seed(seed)
             tf.compat.v1.random.set_random_seed(seed)
             random.seed(seed)
             data = nx.to_numpy_array(nx.gnp_random_graph(size, p, seed))
 
+            # run NES
             set_size[0, rep], duration[0, rep], assignment = run_netket_2(data=data, num_of_iterations=300,
-                                                                        batch_size=1024, seed=seed, penalty=2)
+                                                                          batch_size=1024, seed=seed, penalty=2)
 
             if not check_solution(data, (assignment + 1) / 2):
                 print('# 1 TASK INCOMPLETE')
                 set_size[0, rep] = 0
 
+            # run KaMIS
             # set_size[1,rep], duration[1,rep] = run_KaMIS(data)
+
+            # run RNN
             dummy1, dummy2, duration[1, rep], assignment, set_size[1, rep] = run_2DTFIM(numsteps=300, systemsize_x=size,
                                                                                         systemsize_y=1,
                                                                                         Bx=2, num_units=100,
                                                                                         numsamples=500,
-                                                                                        learningrate=1e-3, seed=seed, Jz=data)
+                                                                                        learningrate=1e-3, seed=seed,
+                                                                                        Jz=data)
 
             if not check_solution(data, assignment):
                 print('# 2 TASK INCOMPLETE')
@@ -130,28 +201,56 @@ def comparison():
         print("Size " + str(size) + " done!")
 
     plt.figure(1)
-    plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[0, :], color='b', label='netket')
-    plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[1, :], color='r', label='RNN')
+    plt.errorbar(np.arange(start=min_p, stop=max_p, step=dp), MIS_size[0, :], color='b', label='netket')
+    plt.errorbar(np.arange(start=min_p, stop=max_p, step=dp), MIS_size[1, :], color='r', label='RNN')
     plt.legend()
-    plt.xlabel('input graph size')
+    plt.xlabel('graph density (connection probability)')
     plt.ylabel('independent set size')
 
     plt.figure(2)
-    plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[2, :], yerr=np.sqrt(var_MIS_size[2, :]))
-    plt.xlabel('input graph size')
+    plt.errorbar(np.arange(start=min_p, stop=max_p, step=dp), MIS_size[2, :],
+                 yerr=np.sqrt(var_MIS_size[2, :]))
+    plt.xlabel('graph density (connection probability)')
     plt.ylabel('difference in set sizes')
 
     plt.figure(3)
-    plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elpased[0, :], color='b', label='netket')
-    plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elpased[1, :], color='r', label='RNN')
+    plt.errorbar(np.arange(start=min_p, stop=max_p, step=dp), time_elpased[0, :], color='b', label='netket')
+    plt.errorbar(np.arange(start=min_p, stop=max_p, step=dp), time_elpased[1, :], color='r', label='RNN')
     plt.legend()
-    plt.xlabel('input graph size')
+    plt.xlabel('graph density (connection probability)')
     plt.ylabel('average run time')
 
     plt.show()
 
-
 if __name__ == '__main__':
     #single_run()
 
-    comparison()
+    multiple_run_size(overwrite=False)
+    print(np.load('./output/mean_size.npy'))
+    #comparison_density(5)
+
+
+
+
+
+
+    # plt.figure(1)
+    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[0, :], color='b', label='netket')
+    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[1, :], color='r', label='RNN')
+    # plt.legend()
+    # plt.xlabel('input graph size')
+    # plt.ylabel('independent set size')
+    #
+    # plt.figure(2)
+    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[2, :], yerr=np.sqrt(var_MIS_size[2, :]))
+    # plt.xlabel('input graph size')
+    # plt.ylabel('difference in set sizes')
+    #
+    # plt.figure(3)
+    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elpased[0, :], color='b', label='netket')
+    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elpased[1, :], color='r', label='RNN')
+    # plt.legend()
+    # plt.xlabel('input graph size')
+    # plt.ylabel('average run time')
+    #
+    # plt.show()
