@@ -19,11 +19,9 @@ def run_netket(cf, data, seed):
 
     # build model
     if cf.model_name == "rbm":
-        model = nk.machine.RbmSpin(alpha=cf.width, hilbert=hilbert)
-    elif cf.model_name == "rbm_real":
-        model = nk.machine.RbmSpinReal(alpha=cf.width, hilbert=hilbert)
-    model.init_random_parameters(seed=seed, sigma=cf.param_init)
-    sampler = nk.sampler.MetropolisLocal(machine=model)
+        model = nk.models.RBM(alpha=cf.width)
+    # model.init_random_parameters(seed=seed, sigma=cf.param_init)
+    sampler = nk.sampler.MetropolisLocal(hilbert=hilbert)
 
     # build optimizer
     if cf.optimizer == "adadelta":
@@ -37,7 +35,7 @@ def run_netket(cf, data, seed):
     elif cf.optimizer == "rmsprop":
         op = nk.optimizer.RmsProp(learning_rate=cf.learning_rate)
     elif cf.optimizer == "sgd":
-        op = nk.optimizer.Sgd(learning_rate=cf.learning_rate, decay_factor=cf.decay_factor)
+        op = nk.optimizer.Sgd(learning_rate=cf.learning_rate)
 
     if cf.use_sr:
         method = "Sr"
@@ -45,15 +43,17 @@ def run_netket(cf, data, seed):
         method = "Gd"
 
     # build algorithm
-    gs = nk.variational.Vmc(
-        hamiltonian=hamiltonian,
-        sampler=sampler,
-        method=method,
-        optimizer=op,
-        n_samples=cf.batch_size,
-        use_iterative=cf.use_iterative,
-        use_cholesky=cf.use_cholesky,
-        diag_shift=0.1)
+    # gs = nk.variational.Vmc(
+    #     hamiltonian=hamiltonian,
+    #     sampler=sampler,
+    #     method=method,
+    #     optimizer=op,
+    #     n_samples=cf.batch_size,
+    #     use_iterative=cf.use_iterative,
+    #     use_cholesky=cf.use_cholesky,
+    #     diag_shift=0.1)
+
+    gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, sampler=sampler, model=model, n_samples=cf.batch_size)
 
     # run algorithm
     start_time = time.time()
@@ -62,7 +62,10 @@ def run_netket(cf, data, seed):
 
     # plot the final node assignment if specified
     MIS_size = 0
-    gen_sample = sampler.generate_samples(n_samples=1)
+    # gen_sample = sampler.generate_samples(n_samples=1)
+    # gen_sample = nk.sampler.samples(sampler=sampler, machine=model, parameters=None)
+    # gen_sample = nk.sampler.sample(sampler=sampler, machine=model, parameters=None, state=nk.sampler.sampler_state())
+    gen_sample = gs.state.samples
     assignment = np.zeros(gen_sample.shape[2])
     for i in range(gen_sample.shape[2]):
         assignment[i] = sum(gen_sample[0, :, i]) / gen_sample.shape[1]
