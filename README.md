@@ -1,6 +1,6 @@
 ## Quantum Optimization
 
-This project is a joint work with Zain Saleem, James Stokes, and Brajesh Gupt. 
+This project is a joint work with Zain Saleem, James Stokes, Brajesh Gupt, and Martin Suchara. 
 
 ## List of installations
 - conda environment coming soon...
