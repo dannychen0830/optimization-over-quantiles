@@ -2,7 +2,7 @@
 
 This project is a joint work with Zain Saleem, James Stokes, and Brajesh Gupt. 
 
-# List of installations
+## List of installations
 - conda environment coming soon...
 - [this MIS solver](https://karlsruhemis.github.io/). It's quite good and is used as a benchmark.
 - more solvers
