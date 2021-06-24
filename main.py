@@ -16,7 +16,6 @@ from KaMIS.KaMIS import run_KaMIS
 def main(cf, seed):
     # create random graph as data (reserve the possibility of importing data)
     data, n, m = load_data(cf, seed)
-
     bound = None
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
@@ -63,8 +62,10 @@ def single_run():
     print('finished')
 
 
-def multiple_run_size(min_size, d_size, max_size, num_rep, overwrite=False, is_benchmark=False):
+def multiple_run_size(min_size, d_size, max_size, num_rep):
     cf, unparsed = get_config()
+    overwrite = cf.overwrite
+    is_benchmark = cf.benchmark
 
     "For multiple runs and comparisons"
     # varying size
@@ -75,7 +76,8 @@ def multiple_run_size(min_size, d_size, max_size, num_rep, overwrite=False, is_b
     # if it is a normal run, then load benchmark
     if not is_benchmark:
         MIS_size = np.zeros(num)
-        var_MIS_size = np.zeros(num)
+        max = np.zeros(num)
+        min = np.zeros(num)
         benchmark = np.load('./output/benchmark.npy')
     # if this is a benchmark run, then allocate space for benchmark
     else:
@@ -107,8 +109,10 @@ def multiple_run_size(min_size, d_size, max_size, num_rep, overwrite=False, is_b
             small_count += 1
 
         if not is_benchmark:
-            MIS_size[big_count] = np.mean(set_size/benchmark[big_count,:])
-            var_MIS_size[big_count] = np.var(set_size/benchmark)
+            ratio = set_size/benchmark[big_count,:]
+            MIS_size[big_count] = np.mean(ratio)
+            max[big_count] = np.max(ratio)
+            min[big_count] = np.min(ratio)
         else:
             benchmark[big_count,:] = set_size
         time_elpased[big_count] = np.mean(duration)
@@ -120,12 +124,14 @@ def multiple_run_size(min_size, d_size, max_size, num_rep, overwrite=False, is_b
 
     if not overwrite:
         append_file('./output/mean_size.npy', MIS_size)
-        append_file('./output/var_size.npy', var_MIS_size)
+        append_file('./output/max.npy', max)
+        append_file('./output/min.npy', min)
         append_file('./output/mean_time.npy', time_elpased)
         append_file('./output/var_time.npy', var_time_elapsed)
     else:
         np.save('./output/mean_size.npy', MIS_size)
-        np.save('./output/var_size.npy', var_MIS_size)
+        np.save('./output/max.npy', max)
+        np.save('./output/min.npy', min)
         np.save('./output/mean_time.npy', time_elpased)
         np.save('./output/var_time.npy', var_time_elapsed)
     if is_benchmark:
@@ -140,49 +146,129 @@ def append_file(file, data):
         np.save(file, np.concatenate((temp, [data])))
 
 
-if __name__ == '__main__':
-    single_run()
+def local_search(N, cf, data):
+    indp_set = np.zeros(data.shape[0])
+    visited = np.zeros(data.shape[0])
 
-    # min_size = 20
-    # d_size = 5
-    # max_size = 60
-    #
-    # num_rep = 3
-    #
-    # multiple_run_size(min_size, d_size, max_size, num_rep, overwrite=False, is_benchmark=False)
+    while not np.array_equal(visited,np.ones(data.shape[0])):
+        # pick reference node out of unvisited nodes
+        r = data.shape[0] - np.count_nonzero(visited)
+        rr = np.random.randint(low=0, high=r)
+        ptr = -1
+        while rr > -1:
+            ptr += 1
+            if visited[ptr] == 0:
+                rr -= 1
+
+        n0 = ptr
+
+        # find neighborhood of radius N-1 n0
+        subgraph_list = [n0]
+        ref = [n0]
+        visited[n0] = 1
+        for t in range(1, N):
+            for v in ref:
+                ref.remove(v)
+                if v not in subgraph_list:
+                    subgraph_list.append(v)
+                    visited[v] = 1
+                for i in range(data[v, :].shape[0]):
+                    if data[v, i] == 1 and visited[i] == 0:
+                        ref.append(i)
+        for v in ref:
+            visited[v] = 1
+
+        # construct adjacency matrix of subgraph
+        ns = len(subgraph_list)
+        subgraph = np.zeros(shape=[ns,ns])
+        for i in range(ns):
+            for j in range(i+1, ns):
+                subgraph[i,j] = data[subgraph_list[i],subgraph_list[j]]
+                subgraph[j,i] = subgraph[i,j]
+
+        # run VMC
+        dummy1, dummy2, subgraph_assignment = run_netket(cf, subgraph, 666)
+        subgraph_assignment = np.round((subgraph_assignment + 1)/2)
+
+        # flip only if the prior assignment is 0
+        for i in range(ns):
+            if indp_set[subgraph_list[i]] == 0:
+                indp_set[subgraph_list[i]] = subgraph_assignment[i]
+
+    # draw it out
+    size = 0
+    G = nx.from_numpy_matrix(data)
+    pos = nx.circular_layout(G)
+    color = []
+    for i in range(cf.input_size):
+        if indp_set[i] == 1:
+            color.append('red')
+            size += 1
+        else:
+            color.append('blue')
+    nx.draw(G, pos=pos, node_color=color)
+    plt.title("Node Assignment")
+    plt.show()
+
+    print(check_solution(data, indp_set))
+
+    return size, indp_set
+
+
+if __name__ == '__main__':
+    # single_run()
+
+    min_size = 20
+    d_size = 5
+    max_size = 60
+
+    num_rep = 3
+
+    # multiple_run_size(min_size, d_size, max_size, num_rep)
     # print(np.load('./output/mean_size.npy'))
 
+    # cf, unparsed = get_config()
+    # data, n, m = load_data(cf, 666)
+    # ls_size, dummy1 = local_search(5, cf, data)
+    # km_size, dummy2 = run_KaMIS(data)
+    #
+    # print(ls_size)
+    # print(km_size)
 
-    # MIS_size = np.load('./output/mean_size.npy')
-    # var_MIS_size = np.load('./output/var_size.npy')
-    # time_elapsed = np.load('./output/mean_time.npy')
-    # var_time_elapsed = np.load('./output/var_size.npy')
-    #
-    #
+
+    MIS_size = np.load('./output/mean_size.npy')
+    var_MIS_size = np.load('./output/var_size.npy')
+    time_elapsed = np.load('./output/mean_time.npy')
+    var_time_elapsed = np.load('./output/var_size.npy')
+
+
     # plt.figure(1)
-    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[0, :],
-    #              yerr=np.sqrt(var_MIS_size[0, :]), color='b', label='netket (100 iter)')
+    # # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[0, :],
+    # #              yerr=np.sqrt(var_MIS_size[0, :]), color='b', label='KaMIS')
     # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[1, :],
-    #              yerr=np.sqrt(var_MIS_size[1, :]), color='r', label='KaMIS')
+    #              yerr=np.sqrt(var_MIS_size[1, :]), color='r', label='netket')
     # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[2, :],
     #              yerr=np.sqrt(var_MIS_size[2, :]), color='g', label='netket (500 iter)')
-    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[3, :],
-    #              yerr=np.sqrt(var_MIS_size[3, :]), color='m', label='netket (500 iter)')
+    # # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), MIS_size[3, :],
+    # #              yerr=np.sqrt(var_MIS_size[3, :]), color='m', label='netket (500 iter)')
     # plt.legend()
     # plt.xlabel('input graph size')
     # plt.ylabel('approximation ratio')
     #
     # plt.figure(2)
-    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[0, :],
-    #              yerr=np.sqrt(var_time_elapsed[0, :]), color='b', label='netket (100 iter)')
+    # # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[0, :],
+    # #              yerr=np.sqrt(var_time_elapsed[0, :]), color='b', label='KaMIS')
     # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[1, :],
-    #              yerr=np.sqrt(var_time_elapsed[1, :]), color='r', label='KaMIS')
+    #              yerr=np.sqrt(var_time_elapsed[1, :]), color='r', label='netket')
     # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[2, :],
     #              yerr=np.sqrt(var_time_elapsed[2, :]), color='g', label='netket (500 iter)')
-    # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[3, :],
-    #              yerr=np.sqrt(var_time_elapsed[3, :]), color='m', label='netket (500 iter)')
+    # # plt.errorbar(np.arange(start=min_size, stop=max_size, step=d_size), time_elapsed[3, :],
+    # #              yerr=np.sqrt(var_time_elapsed[3, :]), color='m', label='netket (500 iter)')
     # plt.legend()
     # plt.xlabel('input graph size')
     # plt.ylabel('average run time')
     #
     # plt.show()
+    #
+    # benchmark = np.load('output/benchmark.npy')
+    # print(MIS_size)
