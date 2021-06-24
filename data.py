@@ -1,11 +1,13 @@
 import numpy as np
 import networkx as nx
+import matplotlib.pyplot as plt
 
 
 # if no data is specified, generate a random graph as a substitute
 def random_graph(cf, seed):
-    G = nx.gnp_random_graph(cf.input_size, 0.1, seed)
-    return nx.to_numpy_array(G)
+    G = nx.gnp_random_graph(cf.input_size, cf.connect_prob, seed=seed)
+    list = nx.connected_components(G)
+    return G, list
 
 
 # either load data if available or generate a random graph

@@ -15,20 +15,31 @@ from KaMIS.KaMIS import run_KaMIS
 # main function, runs the corresponding algorithm by directing to the right folder
 def main(cf, seed):
     # create random graph as data (reserve the possibility of importing data)
-    data, n, m = load_data(cf, seed)
+    # data, n, m = load_data(cf, seed)
+    G, list = load_data(cf, seed)
     bound = None
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
 
     if cf.framework == "NES":
-        MIS_size, time_elapsed, assignment = run_netket(cf, data, seed)
-        if not check_solution(data, (assignment + 1) / 2):
-            MIS_size = 0
+        MIS_size = 0
+        time_elapsed = 0
+        for sub in list:
+            data = nx.to_numpy_array(G.subgraph(sub))
+            if data.shape[0] == 1:
+                MIS_size += 1
+            else:
+                subset, sub_time, assignment = run_netket(cf, data, seed)
+                if check_solution(data, (assignment + 1) / 2):
+                    MIS_size += subset
+                    time_elapsed += sub_time
     elif cf.framework == "RNN":
+        data = nx.to_numpy_array(G)
         MIS_size, time_elapsed, assignment = run_RNN(cf, data, seed)
         if not check_solution(data, assignment):
             MIS_size = 0
     elif cf.framework == "KaMIS":
+        data = nx.to_numpy_array(G)
         MIS_size, time_elapsed = run_KaMIS(data)
     else:
         raise Exception("unknown framework")
@@ -216,13 +227,13 @@ def local_search(N, cf, data):
 
 
 if __name__ == '__main__':
-    # single_run()
+    single_run()
 
-    min_size = 20
-    d_size = 5
-    max_size = 60
-
-    num_rep = 3
+    # min_size = 20
+    # d_size = 5
+    # max_size = 60
+    #
+    # num_rep = 3
 
     # multiple_run_size(min_size, d_size, max_size, num_rep)
     # print(np.load('./output/mean_size.npy'))
@@ -236,10 +247,10 @@ if __name__ == '__main__':
     # print(km_size)
 
 
-    MIS_size = np.load('./output/mean_size.npy')
-    var_MIS_size = np.load('./output/var_size.npy')
-    time_elapsed = np.load('./output/mean_time.npy')
-    var_time_elapsed = np.load('./output/var_size.npy')
+    # MIS_size = np.load('./output/mean_size.npy')
+    # var_MIS_size = np.load('./output/var_size.npy')
+    # time_elapsed = np.load('./output/mean_time.npy')
+    # var_time_elapsed = np.load('./output/var_size.npy')
 
 
     # plt.figure(1)
