@@ -31,9 +31,9 @@ net_arg.add_argument('--num_units', type=int, default=100, help='the number of u
 
 # Data
 data_arg = add_argument_group('Data')
-data_arg.add_argument('--pb_type', type=str, choices=["maxcut", "maxindp"], default="maxcut", help='The problem type')
+data_arg.add_argument('--pb_type', type=str, choices=["maxcut", "maxindp"], default="maxindp", help='The problem type')
 data_arg.add_argument('--batch_size', '-b', type=int, default=128, help='The batch size in each iteration')
-data_arg.add_argument('--input_size', type=int, default=20, help='Number of spins in the input')
+data_arg.add_argument('--input_size', type=int, default=10, help='Number of spins in the input')
 data_arg.add_argument('--num_of_iterations', '-ni', type=int, default=0, help='Num of iterations to benchmark')
 data_arg.add_argument('--connect_prob', type=float, default=0.1, help='when using a Erdos-Renyi random graph, specify the connection probability')
 
@@ -42,9 +42,9 @@ train_arg = add_argument_group('Training')
 train_arg.add_argument('--use_cholesky', type=str2bool, default=True, help='use cholesky solver in SR')
 train_arg.add_argument('--use_iterative', type=str2bool, default=True, help='use iterative solver in SR')
 train_arg.add_argument('--epochs', type=int, default=200)
-train_arg.add_argument('--optimizer', \
+train_arg.add_argument('--optimizer',
                        choices=["adadelta","adagrad","adamax","momentum","rmsprop","sgd"], \
-                       default="sr", help='The optimizer for training')
+                       default="sgd", help='The optimizer for training')
 train_arg.add_argument('--use_sr', type=str2bool, default=True, help='use stochastic reconfiguration for training')
 train_arg.add_argument('--decay_factor', type=float, default=1.0, help='Training decay factor')
 
