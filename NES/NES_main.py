@@ -73,7 +73,7 @@ def run_netket(cf, data, seed):
     G = nx.from_numpy_matrix(data)
     pos = nx.circular_layout(G)
     color = []
-    for i in range(cf.input_size):
+    for i in range(data.shape[0]):
         if assignment[i] > 0:
             MIS_size += 1
             color.append('red')

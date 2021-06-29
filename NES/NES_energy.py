@@ -25,7 +25,7 @@ def MIS_energy(cf, adj):
     g = nk.graph.Graph(edges=edges)
 
     # system with spin-1/2 particles
-    hi = nk.hilbert.Spin(s=0.5, N=N)
+    hi = nk.hilbert.Spin(s=0.5, N=g.n_nodes)
     # hi = nk.hilbert.CustomHilbert(local_states=[-1,1], N=cf.input_size)
     # ha = nk.operator.LocalOperator(hi, 0)
 
