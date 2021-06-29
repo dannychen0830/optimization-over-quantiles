@@ -1,1 +1,2 @@
-python main.py --pb_type=maxindp --fr="NES" --input_size 5 --num_trials=1 --model_name="rbm" --optimizer="sgd" --batch_size=1024 --learning_rate=0.05 --num_of_iterations=50 --random_seed=666 --energy_plot=True
+# running with "netket" framework
+python main.py --pb_type=maxindp --fr="NES" --input_size 10 --num_trials=1 --model_name="rbm" --optimizer="sgd" --batch_size=1000 --learning_rate=0.05 --num_of_iterations=100 --random_seed=666 --print_assignment=False --penalty=4 --overwrite=False
