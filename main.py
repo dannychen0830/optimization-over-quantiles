@@ -13,6 +13,7 @@ from data import load_data
 from NES.NES_main import run_netket
 from RNN.RNN_main import run_RNN
 from KaMIS.KaMIS import run_KaMIS
+from local_search import simple_local_search
 
 
 # main function, runs the corresponding algorithm by directing to the right folder
@@ -44,9 +45,16 @@ def main(cf, seed):
     elif cf.framework == "KaMIS":
         data = nx.to_numpy_array(G)
         MIS_size, time_elapsed = run_KaMIS(data)
+    elif cf.framework == "sLS":
+        data = nx.to_numpy_array(G)
+        MIS_size, assignment, time_elapsed = simple_local_search(cf, data)
+        if not check_solution(data, assignment):
+            MIS_size = 0
     else:
         raise Exception("unknown framework")
 
+    print(MIS_size)
+    print(time_elapsed)
     return MIS_size, time_elapsed
 
 
@@ -239,77 +247,8 @@ def append_file(file, data):
         np.save(file, np.concatenate((temp, [data])))
 
 
-def local_search(N, cf, data):
-    indp_set = np.zeros(data.shape[0])
-    visited = np.zeros(data.shape[0])
-
-    while not np.array_equal(visited,np.ones(data.shape[0])):
-        # pick reference node out of unvisited nodes
-        r = data.shape[0] - np.count_nonzero(visited)
-        rr = np.random.randint(low=0, high=r)
-        ptr = -1
-        while rr > -1:
-            ptr += 1
-            if visited[ptr] == 0:
-                rr -= 1
-
-        n0 = ptr
-
-        # find neighborhood of radius N-1 n0
-        subgraph_list = [n0]
-        ref = [n0]
-        visited[n0] = 1
-        for t in range(1, N):
-            for v in ref:
-                ref.remove(v)
-                if v not in subgraph_list:
-                    subgraph_list.append(v)
-                    visited[v] = 1
-                for i in range(data[v, :].shape[0]):
-                    if data[v, i] == 1 and visited[i] == 0:
-                        ref.append(i)
-        for v in ref:
-            visited[v] = 1
-
-        # construct adjacency matrix of subgraph
-        ns = len(subgraph_list)
-        subgraph = np.zeros(shape=[ns,ns])
-        for i in range(ns):
-            for j in range(i+1, ns):
-                subgraph[i,j] = data[subgraph_list[i],subgraph_list[j]]
-                subgraph[j,i] = subgraph[i,j]
-
-        # run VMC
-        dummy1, dummy2, subgraph_assignment = run_netket(cf, subgraph, 666)
-        subgraph_assignment = np.round((subgraph_assignment + 1)/2)
-
-        # flip only if the prior assignment is 0
-        for i in range(ns):
-            if indp_set[subgraph_list[i]] == 0:
-                indp_set[subgraph_list[i]] = subgraph_assignment[i]
-
-    # draw it out
-    size = 0
-    G = nx.from_numpy_matrix(data)
-    pos = nx.circular_layout(G)
-    color = []
-    for i in range(cf.input_size):
-        if indp_set[i] == 1:
-            color.append('red')
-            size += 1
-        else:
-            color.append('blue')
-    nx.draw(G, pos=pos, node_color=color)
-    plt.title("Node Assignment")
-    plt.show()
-
-    print(check_solution(data, indp_set))
-
-    return size, indp_set
-
-
 if __name__ == '__main__':
-    # single_run()
+    single_run()
 
     min_size = 5
     d_size = 1
@@ -317,7 +256,7 @@ if __name__ == '__main__':
 
     num_rep = 3
 
-    multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
+    # multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
     # multiple_run_size(min_size, d_size, max_size, num_rep)
     # print(np.load('./output/mean_size.npy'))
 
