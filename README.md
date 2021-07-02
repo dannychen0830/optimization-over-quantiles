@@ -1,4 +1,4 @@
-## Quantum Optimization
+## Variational Monte Carlo
 
 This project is a joint work with Zain Saleem, James Stokes, Brajesh Gupt, and Martin Suchara. 
 
