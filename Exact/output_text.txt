@@ -1,0 +1,4 @@
+1 search nodes
+
+Writing Maximum Independent Set to file ./Exact/input_graph.txt.mis
+Maximum Independent Set size: 2
