@@ -51,20 +51,18 @@ train_arg.add_argument('--decay_factor', type=float, default=1.0, help='Training
 # Misc
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--framework', '-fr', type=str, \
-                      choices= ["NES", "RNN", "KaMIS", "sLS"], \
+                      choices= ["NES", "RNN", "KaMIS", "Exact", "sLS"], \
                       default='NES', help='Options for algorithms')
 misc_arg.add_argument('--dir', type=str, default='')
 misc_arg.add_argument('--num_gpu', type=int, default=0)
 misc_arg.add_argument('--num_trials', type=int, default=1, help='Number of runs with different seeds')
-misc_arg.add_argument('--random_seed', '-r', type=int, default=600, help='Randomization seed')
+misc_arg.add_argument('--random_seed', '-r', type=int, default=666, help='Randomization seed')
 misc_arg.add_argument('--present', type=str, default="boxplot")
 misc_arg.add_argument('--input_data', type=str2bool, default=False, help='Indicate whether input data is needed')
 misc_arg.add_argument('--energy_plot', type=str2bool, default=False, help='Show the plot of energy vs. iteration')
 misc_arg.add_argument('--print_assignment', type=str2bool, default=False, help='Show the final node assignment')
-misc_arg.add_argument('--overwrite', type=str2bool, default=False)
-misc_arg.add_argument('--benchmark', type=str2bool, default=False)
-misc_arg.add_argument('--expansion', type=int, default=4, help='during local search, how big is the expanded neighborhood')
-
+misc_arg.add_argument('--save_file', type=str, help='file name for where to save file')
+misc_arg.add_argument('--expansion', type=int, default=2, help='during local search, how big is the expanded neighborhood')
 
 def get_config():
     cf, unparsed = parser.parse_known_args()
