@@ -23,7 +23,7 @@ net_arg.add_argument('--depth', '-d', type=int, default=1, help='Num of layers b
 net_arg.add_argument('--width', '-w', type=int, default=1, help='Num of output channels in each layer')
 net_arg.add_argument('--activation', type=str, choices=["relu", "tanh"], default="tanh", help='The activation function')
 net_arg.add_argument('--model_name', '-m', type=str, \
-                     choices=["rbm","rbm_real"], \
+                     choices=["rbm","crbm"], \
                      default='rbm', help='Model architecture')
 net_arg.add_argument('--param_init', type=float, default=0.01, help='Model parameter initialization')
 net_arg.add_argument('--penalty', type=float, default=1, help='During MIS, choose weighting of penalty term')
@@ -43,19 +43,19 @@ train_arg.add_argument('--use_cholesky', type=str2bool, default=True, help='use 
 train_arg.add_argument('--use_iterative', type=str2bool, default=True, help='use iterative solver in SR')
 train_arg.add_argument('--epochs', type=int, default=200)
 train_arg.add_argument('--optimizer',
-                       choices=["adadelta","adagrad","adamax","momentum","rmsprop","sgd"], \
+                       choices=["adam","adagrad","momentum","rmsprop","sgd"], \
                        default="sgd", help='The optimizer for training')
 train_arg.add_argument('--use_sr', type=str2bool, default=True, help='use stochastic reconfiguration for training')
 train_arg.add_argument('--decay_factor', type=float, default=1.0, help='Training decay factor')
+train_arg.add_argument('--cvar', type=int, default=100, help='the percent of lower tail used for graident computation')
 
 # Misc
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--framework', '-fr', type=str, \
-                      choices= ["NES", "RNN", "KaMIS", "Exact", "sLS"], \
+                      choices= ["NES", "RNN", "KaMIS", "Exact", "sLS", "GNN"], \
                       default='NES', help='Options for algorithms')
 misc_arg.add_argument('--dir', type=str, default='')
 misc_arg.add_argument('--num_gpu', type=int, default=0)
-misc_arg.add_argument('--num_trials', type=int, default=1, help='Number of runs with different seeds')
 misc_arg.add_argument('--random_seed', '-r', type=int, default=666, help='Randomization seed')
 misc_arg.add_argument('--present', type=str, default="boxplot")
 misc_arg.add_argument('--input_data', type=str2bool, default=False, help='Indicate whether input data is needed')

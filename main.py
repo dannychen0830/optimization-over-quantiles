@@ -5,6 +5,7 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import functools
+import os
 
 from config import get_config
 from data import load_data
@@ -16,13 +17,17 @@ from KaMIS.KaMIS import run_KaMIS
 from local_search import simple_local_search
 from local_search import simple_local_search_parallel
 from Exact.Exact import run_exact
+from GNN.GCN_main import run_GCN
 
 
 # main function, runs the corresponding algorithm by directing to the right folder
 def main(cf, seed):
     # create random graph as data (reserve the possibility of importing data)
     # data, n, m = load_data(cf, seed)
-    G, list = load_data(cf, seed)
+    if cf.input_data:
+        data = load_data(cf, seed)
+    else:
+        G, list = load_data(cf, seed)
     bound = None
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
@@ -30,15 +35,21 @@ def main(cf, seed):
     if cf.framework == "NES":
         MIS_size = 0
         time_elapsed = 0
-        for sub in list:
-            data = nx.to_numpy_array(G.subgraph(sub))
-            if data.shape[0] == 1:
-                MIS_size += 1
-            else:
-                subset, sub_time, assignment = run_netket(cf, data, seed)
-                if check_solution(data, (assignment + 1) / 2):
-                    MIS_size += subset
-                    time_elapsed += sub_time
+        if not cf.input_data:
+            for sub in list:
+                data = nx.to_numpy_array(G.subgraph(sub))
+                if data.shape[0] == 1:
+                    MIS_size += 1
+                else:
+                    subset, sub_time, assignment = run_netket(cf, data, seed)
+                    if check_solution(data, (assignment + 1) / 2):
+                        MIS_size += subset
+                        time_elapsed += sub_time
+        else:
+            MIS_size, time_elapsed, assignment = run_netket(cf, data, seed)
+            if not check_solution(data, (assignment + 1) / 2):
+                MIS_size = 0
+                time_elapsed = 0
     elif cf.framework == "RNN":
         data = nx.to_numpy_array(G)
         MIS_size, time_elapsed, assignment = run_RNN(cf, data, seed)
@@ -53,9 +64,21 @@ def main(cf, seed):
         if not check_solution(data, assignment):
             print('failed')
             MIS_size = 0
-    elif cf.frameework == "Exact":
+    elif cf.framework == "Exact":
         data = nx.to_numpy_array(G)
         MIS_size, time_elapsed = run_exact(data)
+    elif cf.framework == "GNN":
+        MIS_size = 0
+        time_elapsed = 0
+        for sub in list:
+            data = nx.to_numpy_array(G.subgraph(sub))
+            if data.shape[0] == 1:
+                MIS_size += 1
+            else:
+                subset, sub_time, assignment = run_GCN(cf, data)
+                if check_solution(data, assignment):
+                    MIS_size += subset
+                    time_elapsed += sub_time
     else:
         raise Exception("unknown framework")
 
@@ -145,31 +168,22 @@ def multiple_run_size_parallel(min_size, d_size, max_size, num_rep):
     MIS_size = np.zeros(shape=[num, num_rep])
     time_elapsed = np.zeros(shape=[num, num_rep])
 
-    param = []
     size = min_size
-    rep = 0
-    for i in range(num*num_rep):
-        param.append([seed+i, size])
-        rep += 1
-        if rep == num_rep:
-            rep = 0
-            size += d_size
-
-    pool = mp.Pool(processes=num*num_rep)
-    func = functools.partial(submain_size, cf=cf)
-    set, time = zip(*pool.map(func, param))
-
     ptr = 0
     for big_count in range(num):
-        set_size = np.zeros(num_rep)
-        sub_time = np.zeros(num_rep)
+        param = []
         for small_count in range(num_rep):
-            set_size[small_count] = set[ptr]
-            sub_time[small_count] = time[ptr]
+            param.append([seed+ptr, size])
             ptr += 1
-        # ratio = set_size/benchmark[big_count,:]
-        MIS_size[big_count,:] = set_size
-        time_elapsed[big_count,:] = sub_time
+
+        pool = mp.Pool(processes=num_rep)
+        func = functools.partial(submain_size, cf=cf)
+        set, time = zip(*pool.map(func, param))
+
+        MIS_size[big_count,:] = set
+        time_elapsed[big_count,:] = time
+
+        size += d_size
 
     np.save('./output/'+cf.save_file + "_size", MIS_size)
     np.save('./output/'+cf.save_file + "_time", time_elapsed)
@@ -179,18 +193,11 @@ def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
     cf, unparsed = get_config()
     num = int((max_batch - min_batch) / d_batch)
 
-    size_b = np.zeros(num_rep)
     size_n = np.zeros(shape=[num, num_rep])
-    time_b = np.zeros(num_rep)
     time_n = np.zeros(shape=[num, num_rep])
 
     seed = 666
 
-    cf.framework = 'KaMIS'
-    for i in range(num_rep):
-        size_b[i], time_b[i] = main(cf, seed+i)
-
-    cf.framework = 'NES'
     cf.batch_size = min_batch
     for i in range(num):
         seed_list = []
@@ -199,11 +206,10 @@ def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
         pool = mp.Pool(processes=num_rep)
         func = functools.partial(submain_batch, cf=cf)
         size_n[i,:], time_n[i,:] = zip(*pool.map(func, seed_list))
-        size_n[i,:] = np.divide(size_n[i,:],size_b)
         cf.batch_size += d_batch
 
-    np.save('./output/compare_size', size_n)
-    np.save('./output/compare_time', time_n)
+    np.save('./output/compare_' + cf.save_file + "_size", size_n)
+    np.save('./output/compare_' + cf.save_file + "_time", time_n)
 
 
 def submain_size(param, cf):
@@ -246,52 +252,74 @@ if __name__ == '__main__':
     # compare_batch_size(2000, 2000, 12000, 5)
     # print(np.load('./output/mean_size.npy'))
 
-    # s_k = np.load('./output/KaMIS_size.npy')
-    # t_k = np.load('./output/KaMIS_time.npy')
-    # s_sp = np.load('./output/netket_sLs_p_size.npy')
-    # t_sp = np.load('./output/netket_sLs_p_time.npy')
-    # s_s = np.load('./output/netket_sLs_size.npy')
-    # t_s = np.load('./output/netket_sLs_time.npy')
-    # s_n = np.load('./output/netket_reg_size.npy')
-    # t_n = np.load('./output/netket_reg_time.npy')
+    # file = open('list.txt','r')
+    # s = np.load('./output/netket_crbm_4000_cont_size.npy')
+    # t = np.load('./output/netket_crbm_4000_cont_time.npy')
+    # i = 4
+    # j = 0
+    # b = True
+    # for line in file:
+    #     if line[0].isdigit():
+    #         if b:
+    #             s[i,j] = int(line)
+    #             b = not b
+    #         else:
+    #             t[i,j] = float(line)
+    #             b = not b
+    #             j += 1
+    #             if j == 10:
+    #                 j = 0
+    #                 i += 1
+    # print(s)
+    # np.save('./output/netket_crbm_4000_cont_size.npy', s)
+    # np.save('./output/netket_crbm_4000_cont_time.npy', t)
+
+    # s_k = np.concatenate((np.load('./output/KaMIS_size.npy'),np.load('./output/KaMIS_cont_size.npy')), axis=0)
+    # t_k = np.concatenate((np.load('./output/KaMIS_time.npy'),np.load('./output/KaMIS_cont_time.npy')), axis=0)
+    # s_n = np.concatenate((np.load('./output/netket_reg_4000_size.npy'),np.load('./output/netket_reg_4000_cont_size.npy')), axis=0)
+    # t_n = np.concatenate((np.load('./output/netket_reg_4000_time.npy'),np.load('./output/netket_reg_4000_cont_time.npy')), axis=0)
+    # s_c = np.concatenate((np.load('./output/netket_crbm_4000_size.npy'), np.load('./output/netket_crbm_4000_cont_size.npy')), axis=0)
+    # t_c = np.concatenate((np.load('./output/netket_crbm_4000_time.npy'), np.load('./output/netket_crbm_4000_cont_time.npy')), axis=0)
+    # s_g = np.concatenate((np.load('./output/GNN_369_5_size.npy'), np.zeros(shape=[6,10])), axis=0)
+    # t_g = np.concatenate((np.load('./output/GNN_369_5_time.npy'), np.zeros(shape=[6,10])), axis=0)
+    #
+    #
+    # s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=250, step=30)))
     #
     # s_axis = np.arange(start=min_size, stop=max_size, step=d_size)
+    # s_k = np.load('./output/netket_CVar_1_s_size.npy')
+    # t_k = np.load('./output/netket_CVar_1_s_time.npy')
+    # s_n = np.load('./output/netket_CVar_10_s_size.npy')
+    # t_n = np.load('./output/netket_CVar_10_s_time.npy')
+    # s_c = np.load('./output/netket_CVar_25_s_size.npy')
+    # t_c = np.load('./output/netket_CVar_25_s_time.npy')
+    # s_g = np.load('./output/netket_reg_4000_size.npy')
+    # t_g = np.load('./output/netket_reg_4000_time.npy')
     #
     # plt.figure(1)
-    # plt.errorbar(s_axis, np.mean(s_k, axis=1), yerr=[np.mean(s_k, axis=1)-np.min(s_k, axis=1), np.max(s_k, axis=1)-np.mean(s_k, axis=1)], color='b', label='KaMIS')
-    # plt.errorbar(s_axis, np.mean(s_s, axis=1), yerr=[np.mean(s_s, axis=1)-np.min(s_s, axis=1), np.max(s_s, axis=1)-np.mean(s_s, axis=1)], color='r', label='(mistake) local search')
-    # plt.errorbar(s_axis, np.mean(s_sp, axis=1), yerr=[np.mean(s_sp, axis=1)-np.min(s_sp, axis=1), np.max(s_sp, axis=1)-np.mean(s_sp, axis=1)], color='g', label='local search')
-    # plt.errorbar(s_axis, np.mean(s_n, axis=1), yerr=[np.mean(s_n, axis=1)-np.min(s_n, axis=1), np.max(s_n, axis=1)-np.mean(s_n, axis=1)], color='m', label='netket')
+    # plt.errorbar(s_axis, np.mean(s_k, axis=1), yerr=[np.mean(s_k, axis=1)-np.min(s_k, axis=1), np.max(s_k, axis=1)-np.mean(s_k, axis=1)], color='b', label='alpha = 0.01')
+    # plt.errorbar(s_axis, np.mean(s_n, axis=1), yerr=[np.mean(s_n, axis=1)-np.min(s_n, axis=1), np.max(s_n, axis=1)-np.mean(s_n, axis=1)], color='m', label='alpha = 0.1')
+    # plt.errorbar(s_axis, np.mean(s_c, axis=1), yerr=[np.mean(s_c, axis=1)-np.min(s_c, axis=1), np.max(s_c, axis=1)-np.mean(s_c, axis=1)], color='r', label='alpha = 0.25')
+    # plt.errorbar(s_axis, np.mean(s_g, axis=1), yerr=[np.mean(s_g, axis=1)-np.min(s_g, axis=1), np.max(s_g, axis=1)-np.mean(s_g, axis=1)], color='c', label='alpha = 1')
     # plt.xlabel('number of vertices')
     # plt.ylabel('size of the indepedent set')
     # plt.legend()
     #
-    # r_s = np.divide(s_s, s_k)
-    # r_n = np.divide(s_n, s_k)
-    # r_sp = np.divide(s_sp, s_k)
-    # plt.figure(2)
-    # plt.errorbar(s_axis, np.mean(r_s, axis=1), yerr=[np.mean(r_s, axis=1)-np.min(r_s, axis=1), np.max(r_s, axis=1)-np.mean(r_s, axis=1)], color='r', label='(mistake) local search')
-    # plt.errorbar(s_axis, np.mean(r_n, axis=1), yerr=[np.mean(r_n, axis=1)-np.min(r_n, axis=1), np.max(r_n, axis=1)-np.mean(r_n, axis=1)], color='m', label='netket')
-    # plt.errorbar(s_axis, np.mean(r_sp, axis=1), yerr=[np.mean(r_sp, axis=1)-np.min(r_sp, axis=1), np.max(r_sp, axis=1)-np.mean(r_sp, axis=1)], color='g', label='local search')
-    # plt.xlabel('number of vertices')
-    # plt.ylabel('normalized set size')
-    # plt.legend()
-    #
     # plt.figure(3)
     # plt.yscale('log')
-    # plt.errorbar(s_axis, np.mean(t_k, axis=1), yerr=np.std(t_k, axis=1), color='b', label='KaMIS')
-    # plt.errorbar(s_axis, np.mean(t_s, axis=1),yerr=np.std(t_s, axis=1), color='r', label='(mistake) local search')
-    # plt.errorbar(s_axis, np.mean(t_sp, axis=1), yerr=np.std(t_sp, axis=1), color='g', label='local search')
-    # plt.errorbar(s_axis, np.mean(t_n, axis=1), yerr=np.std(t_n, axis=1), color='m', label='netket')
+    # plt.errorbar(s_axis, np.mean(t_k, axis=1), yerr=np.std(t_k, axis=1), color='b', label='alpha = 0.01')
+    # plt.errorbar(s_axis, np.mean(t_n, axis=1), yerr=np.std(t_n, axis=1), color='m', label='alpha = 0.1')
+    # plt.errorbar(s_axis, np.mean(t_c, axis=1), yerr=np.std(t_c, axis=1), color='r', label='alpha = 0.25')
+    # plt.errorbar(s_axis, np.mean(t_g, axis=1), yerr=np.std(t_g, axis=1), color='c', label='alpha = 1')
     # plt.xlabel('number of vertices')
     # plt.ylabel('time used (log scale)')
     # plt.legend()
     #
     # plt.figure(4)
     # plt.plot(s_axis, np.max(s_k, axis=1), color='b', label='KaMIS')
-    # plt.plot(s_axis, np.max(s_s, axis=1), color='r', label='(mistake) local search')
-    # plt.plot(s_axis, np.max(s_sp, axis=1), color='g', label='local search')
-    # plt.plot(s_axis, np.max(s_n, axis=1), color='m', label='netket')
+    # plt.plot(s_axis, np.max(s_n, axis=1), color='m', label='r-rbm')
+    # plt.plot(s_axis, np.max(s_c, axis=1), color='r', label='c-rbm')
+    # plt.plot(s_axis, np.max(s_g, axis=1), color='c', label='GNN')
     # plt.xlabel('number of vertices')
     # plt.ylabel('maximum independent set found')
     # plt.legend()
@@ -299,25 +327,34 @@ if __name__ == '__main__':
     #
     # plt.show()
 
-    # s = np.load('./output/compare_size.npy')
-    # t = np.load('./output/compare_time.npy')
+    # s_sgd = np.load('./output/compare_netket_otf_size.npy')
+    # t_sgd = np.load('./output/compare_netket_otf_time.npy')
+    # s_adagrad = np.load('./output/compare_netket_jd_size.npy')
+    # t_adagrad = np.load('./output/compare_netket_jd_time.npy')
+    # s_momentum = np.load('./output/compare_netket_pt_size.npy')
+    # t_momentum = np.load('./output/compare_netket_pt_time.npy')
+    # # s_rmsprop = np.load('./output/compare_netket_rmsprop_size.npy')
+    # # t_rmsprop = np.load('./output/compare_netket_rmsprop_time.npy')
     #
-    # axis = np.arange(start=2000, stop=12000, step=2000)
+    # axis = np.arange(start=200, stop=5000, step=600)
     #
     # fig, ax1 = plt.subplots()
     #
-    # color = 'tab:red'
     # ax1.set_xlabel('batch size')
-    # ax1.set_ylabel('independent set size found', color=color)
-    # ax1.errorbar(axis, np.mean(s,axis=1), yerr=[np.mean(s, axis=1)-np.min(s, axis=1), np.max(s, axis=1)-np.mean(s, axis=1)], color=color)
-    # ax1.tick_params(axis='y', labelcolor=color)
+    # ax1.set_ylabel('independent set size found', color='k')
+    # ax1.plot(axis, np.mean(s_sgd, axis=1), color='r', label='On the Fly')
+    # ax1.plot(axis, np.mean(s_adagrad, axis=1), color='b', label='Dense')
+    # ax1.plot(axis, np.mean(s_momentum, axis=1), color='g', label='PyTree')
+    # ax1.tick_params(axis='y', labelcolor='k')
     #
     # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     #
-    # color = 'tab:blue'
-    # ax2.set_ylabel('time', color=color)  # we already handled the x-label with ax1
-    # ax2.plot(axis, np.mean(t, axis=1), color=color)
-    # ax2.tick_params(axis='y', labelcolor=color)
+    # ax2.set_ylabel('time', color='k')  # we already handled the x-label with ax1
+    # ax2.plot(axis, np.mean(t_sgd, axis=1), color='r', linestyle='dashed')
+    # ax2.plot(axis, np.mean(t_adagrad, axis=1), color='b', linestyle='dashed')
+    # ax2.plot(axis, np.mean(t_momentum, axis=1), color='g', linestyle='dashed')
+    # ax2.tick_params(axis='y', labelcolor='k')
     #
     # fig.tight_layout()  # otherwise the right y-label is slightly clipped
+    # fig.legend()
     # plt.show()
