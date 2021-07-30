@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from NES.NES_energy import MIS_energy
+from NES.NES_energy import Maxcut_energy
 
 
 # run NES using netket
@@ -14,22 +15,21 @@ def run_netket(cf, data, seed):
     if cf.pb_type == "maxindp":
         hamiltonian,graph,hilbert = MIS_energy(cf, data)
     if cf.pb_type == "maxcut":
-        print('max cut not implemented yet')
-        hamiltonian, graph, hilbert = MIS_energy(cf, data)
+        hamiltonian, graph, hilbert = Maxcut_energy(cf, data)
 
     # build model
     if cf.model_name == "rbm":
         model = nk.models.RBM(alpha=cf.width)
+    elif cf.model_name == "crbm":
+        model = nk.models.RBM(alpha=cf.width, dtype=np.complex64)
     # model.init_random_parameters(seed=seed, sigma=cf.param_init)
     sampler = nk.sampler.MetropolisLocal(hilbert=hilbert)
 
     # build optimizer
-    if cf.optimizer == "adadelta":
-        op = nk.optimizer.AdaDelta()
+    if cf.optimizer == "adam":
+        op = nk.optimizer.Adam(learning_rate=cf.learning_rate)
     elif cf.optimizer == "adagrad":
         op = nk.optimizer.AdaGrad(learning_rate=cf.learning_rate)
-    elif cf.optimizer == "adamax":
-        op = nk.optimizer.AdaMax(alpha=cf.learning_rate)
     elif cf.optimizer == "momentum":
         op = nk.optimizer.Momentum(learning_rate=cf.learning_rate)
     elif cf.optimizer == "rmsprop":
@@ -38,47 +38,38 @@ def run_netket(cf, data, seed):
         op = nk.optimizer.Sgd(learning_rate=cf.learning_rate)
 
     if cf.use_sr:
-        method = "Sr"
+        sr = nk.optimizer.SR()
     else:
-        method = "Gd"
+        sr = None
 
-    # build algorithm
-    # gs = nk.variational.Vmc(
-    #     hamiltonian=hamiltonian,
-    #     sampler=sampler,
-    #     method=method,
-    #     optimizer=op,
-    #     n_samples=cf.batch_size,
-    #     use_iterative=cf.use_iterative,
-    #     use_cholesky=cf.use_cholesky,
-    #     diag_shift=0.1)
-
-    gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, sampler=sampler, model=model, n_samples=cf.batch_size)
+    vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
+    gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
 
     # run algorithm
     start_time = time.time()
-    gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=False)
+    gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
     end_time = time.time()
 
     # plot the final node assignment if specified
-    MIS_size = 0
-    # gen_sample = sampler.generate_samples(n_samples=1)
-    # gen_sample = nk.sampler.samples(sampler=sampler, machine=model, parameters=None)
-    # gen_sample = nk.sampler.sample(sampler=sampler, machine=model, parameters=None, state=nk.sampler.sampler_state())
-    gen_sample = gs.state.samples
-    assignment = np.zeros(gen_sample.shape[2])
-    for i in range(gen_sample.shape[2]):
-        assignment[i] = sum(gen_sample[0, :, i]) / gen_sample.shape[1]
+    size = 0
+    assignment = gs.get_good_sample()
 
     G = nx.from_numpy_matrix(data)
     pos = nx.circular_layout(G)
     color = []
     for i in range(data.shape[0]):
         if assignment[i] > 0:
-            MIS_size += 1
+            if cf.pb_type == 'maxindp':
+                size += 1
             color.append('red')
         else:
             color.append('blue')
+
+    if cf.pb_type == 'maxcut':
+        for i in range(data.shape[0]):
+            for j in range(i+1, data.shape[0]):
+                if data[i,j] == 1 and assignment[i] + assignment[j] == 0:
+                    size += 1
 
     if cf.print_assignment:
         print(assignment)
@@ -105,4 +96,4 @@ def run_netket(cf, data, seed):
         # output result
 
     time_elapsed = end_time - start_time
-    return MIS_size, time_elapsed, assignment
+    return size, time_elapsed, assignment
