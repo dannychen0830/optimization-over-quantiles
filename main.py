@@ -5,7 +5,6 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import functools
-import os
 
 from config import get_config
 from data import load_data
@@ -14,10 +13,10 @@ from data import load_data
 from NES.NES_main import run_netket
 from RNN.RNN_main import run_RNN
 from KaMIS.KaMIS import run_KaMIS
-from local_search import simple_local_search
 from local_search import simple_local_search_parallel
 from Exact.Exact import run_exact
 from GNN.GCN_main import run_GCN
+from BM import run_manopt
 
 
 # main function, runs the corresponding algorithm by directing to the right folder
@@ -39,12 +38,14 @@ def main(cf, seed):
             for sub in list:
                 data = nx.to_numpy_array(G.subgraph(sub))
                 if data.shape[0] == 1:
-                    MIS_size += 1
+                    if cf.pb_type == 'maxindp':
+                        MIS_size += 1
                 else:
                     subset, sub_time, assignment = run_netket(cf, data, seed)
-                    if check_solution(data, (assignment + 1) / 2):
-                        MIS_size += subset
-                        time_elapsed += sub_time
+                    MIS_size += subset
+                    time_elapsed += sub_time
+                    if cf.pb_type == 'maxindp' and not check_solution(data, (assignment + 1) / 2):
+                        MIS_size = 0
         else:
             MIS_size, time_elapsed, assignment = run_netket(cf, data, seed)
             if not check_solution(data, (assignment + 1) / 2):
@@ -79,6 +80,9 @@ def main(cf, seed):
                 if check_solution(data, assignment):
                     MIS_size += subset
                     time_elapsed += sub_time
+    elif cf.framework == 'BM':
+        data = nx.to_numpy_array(G)
+        MIS_size, time_elapsed = run_manopt(cf, data)
     else:
         raise Exception("unknown framework")
 
@@ -103,13 +107,12 @@ def single_run():
     print(cf)
 
     # repeat multiple times if requested with
-    for num_trials in range(cf.num_trials):
-        seed = cf.random_seed + num_trials
-        np.random.seed(seed)
-        tf.compat.v1.random.set_random_seed(seed)
-        random.seed(seed)
+    seed = cf.random_seed
+    np.random.seed(seed)
+    tf.compat.v1.random.set_random_seed(seed)
+    random.seed(seed)
 
-        score, time = main(cf, seed)
+    score, time = main(cf, seed)
     print('finished')
 
 
@@ -247,15 +250,17 @@ if __name__ == '__main__':
 
     num_rep = 10
 
-    # multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
+    multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
     # multiple_run_size(min_size, d_size, max_size, num_rep)
     # compare_batch_size(2000, 2000, 12000, 5)
     # print(np.load('./output/mean_size.npy'))
 
     # file = open('list.txt','r')
-    # s = np.load('./output/netket_crbm_4000_cont_size.npy')
-    # t = np.load('./output/netket_crbm_4000_cont_time.npy')
-    # i = 4
+    # a = np.load('./output/compare_maxcut_cont_size.npy')
+    # b = np.load('./output/compare_maxcut_cont_time.npy')
+    # s = np.zeros(shape=[4,10])
+    # t = np.zeros(shape=[4,10])
+    # i = 0
     # j = 0
     # b = True
     # for line in file:
@@ -270,32 +275,35 @@ if __name__ == '__main__':
     #             if j == 10:
     #                 j = 0
     #                 i += 1
+    # s[3,:] = a
+    # t[3,:] = b
     # print(s)
-    # np.save('./output/netket_crbm_4000_cont_size.npy', s)
-    # np.save('./output/netket_crbm_4000_cont_time.npy', t)
+    # print(t)
+    # np.save('./output/compare_maxcut_size.npy', s)
+    # np.save('./output/compare_maxcut_time.npy', t)
 
-    # s_k = np.concatenate((np.load('./output/KaMIS_size.npy'),np.load('./output/KaMIS_cont_size.npy')), axis=0)
-    # t_k = np.concatenate((np.load('./output/KaMIS_time.npy'),np.load('./output/KaMIS_cont_time.npy')), axis=0)
-    # s_n = np.concatenate((np.load('./output/netket_reg_4000_size.npy'),np.load('./output/netket_reg_4000_cont_size.npy')), axis=0)
-    # t_n = np.concatenate((np.load('./output/netket_reg_4000_time.npy'),np.load('./output/netket_reg_4000_cont_time.npy')), axis=0)
-    # s_c = np.concatenate((np.load('./output/netket_crbm_4000_size.npy'), np.load('./output/netket_crbm_4000_cont_size.npy')), axis=0)
-    # t_c = np.concatenate((np.load('./output/netket_crbm_4000_time.npy'), np.load('./output/netket_crbm_4000_cont_time.npy')), axis=0)
+    # s_k = np.concatenate((np.load('./output/KaMIS_size.npy'),np.load('./output/KaMIS_cont_size.npy')), axis=0)[0:17,:]
+    # t_k = np.concatenate((np.load('./output/KaMIS_time.npy'),np.load('./output/KaMIS_cont_time.npy')), axis=0)[0:17,:]
+    # s_n = np.concatenate((np.load('./output/netket_reg_4000_size.npy'),np.load('./output/netket_reg_4000_cont_size.npy')), axis=0)[0:17,:]
+    # t_n = np.concatenate((np.load('./output/netket_reg_4000_time.npy'),np.load('./output/netket_reg_4000_cont_time.npy')), axis=0)[0:17,:]
+    # s_c = np.concatenate((np.load('./output/netket_crbm_4000_size.npy'), np.load('./output/netket_crbm_4000_cont_size.npy')), axis=0)[0:17,:]
+    # t_c = np.concatenate((np.load('./output/netket_crbm_4000_time.npy'), np.load('./output/netket_crbm_4000_cont_time.npy')), axis=0)[0:17,:]
     # s_g = np.concatenate((np.load('./output/GNN_369_5_size.npy'), np.zeros(shape=[6,10])), axis=0)
     # t_g = np.concatenate((np.load('./output/GNN_369_5_time.npy'), np.zeros(shape=[6,10])), axis=0)
     #
     #
-    # s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=250, step=30)))
+    # s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=220, step=30)))
     #
     # s_axis = np.arange(start=min_size, stop=max_size, step=d_size)
-    # s_k = np.load('./output/netket_CVar_1_s_size.npy')
-    # t_k = np.load('./output/netket_CVar_1_s_time.npy')
-    # s_n = np.load('./output/netket_CVar_10_s_size.npy')
-    # t_n = np.load('./output/netket_CVar_10_s_time.npy')
-    # s_c = np.load('./output/netket_CVar_25_s_size.npy')
-    # t_c = np.load('./output/netket_CVar_25_s_time.npy')
-    # s_g = np.load('./output/netket_reg_4000_size.npy')
-    # t_g = np.load('./output/netket_reg_4000_time.npy')
-    #
+    # s_k = np.load('./output/maxcut_CVar_1_size.npy')
+    # t_k = np.load('./output/maxcut_CVar_1_time.npy')
+    # s_n = np.load('./output/maxcut_CVar_10_size.npy')
+    # t_n = np.load('./output/maxcut_CVar_10_time.npy')
+    # s_c = np.load('./output/maxcut_CVar_25_size.npy')
+    # t_c = np.load('./output/maxcut_CVar_25_time.npy')
+    # s_g = np.load('./output/maxcut_CVar_100_size.npy')
+    # t_g = np.load('./output/maxcut_CVar_100_time.npy')
+    # #
     # plt.figure(1)
     # plt.errorbar(s_axis, np.mean(s_k, axis=1), yerr=[np.mean(s_k, axis=1)-np.min(s_k, axis=1), np.max(s_k, axis=1)-np.mean(s_k, axis=1)], color='b', label='alpha = 0.01')
     # plt.errorbar(s_axis, np.mean(s_n, axis=1), yerr=[np.mean(s_n, axis=1)-np.min(s_n, axis=1), np.max(s_n, axis=1)-np.mean(s_n, axis=1)], color='m', label='alpha = 0.1')
@@ -314,45 +322,39 @@ if __name__ == '__main__':
     # plt.xlabel('number of vertices')
     # plt.ylabel('time used (log scale)')
     # plt.legend()
-    #
+
     # plt.figure(4)
     # plt.plot(s_axis, np.max(s_k, axis=1), color='b', label='KaMIS')
     # plt.plot(s_axis, np.max(s_n, axis=1), color='m', label='r-rbm')
     # plt.plot(s_axis, np.max(s_c, axis=1), color='r', label='c-rbm')
-    # plt.plot(s_axis, np.max(s_g, axis=1), color='c', label='GNN')
+    # # plt.plot(s_axis, np.max(s_g, axis=1), color='c', label='GNN')
     # plt.xlabel('number of vertices')
     # plt.ylabel('maximum independent set found')
     # plt.legend()
-    #
-    #
+
     # plt.show()
 
-    # s_sgd = np.load('./output/compare_netket_otf_size.npy')
-    # t_sgd = np.load('./output/compare_netket_otf_time.npy')
-    # s_adagrad = np.load('./output/compare_netket_jd_size.npy')
-    # t_adagrad = np.load('./output/compare_netket_jd_time.npy')
-    # s_momentum = np.load('./output/compare_netket_pt_size.npy')
-    # t_momentum = np.load('./output/compare_netket_pt_time.npy')
-    # # s_rmsprop = np.load('./output/compare_netket_rmsprop_size.npy')
-    # # t_rmsprop = np.load('./output/compare_netket_rmsprop_time.npy')
+    # s = np.load('./output/compare_maxindp_v2_size.npy')
+    # s = np.mean(s, axis=1)
+    # t = np.load('./output/compare_maxindp_v2_time.npy')
+    # t = np.mean(t, axis=1)
+    # bm = np.load('./output/BM_250_size.npy')
     #
-    # axis = np.arange(start=200, stop=5000, step=600)
+    # axis = np.array([0.01, 0.1, 0.25, 1])
     #
     # fig, ax1 = plt.subplots()
+    # ax1.set_xscale('log')
     #
-    # ax1.set_xlabel('batch size')
+    # ax1.set_xlabel('alpha')
     # ax1.set_ylabel('independent set size found', color='k')
-    # ax1.plot(axis, np.mean(s_sgd, axis=1), color='r', label='On the Fly')
-    # ax1.plot(axis, np.mean(s_adagrad, axis=1), color='b', label='Dense')
-    # ax1.plot(axis, np.mean(s_momentum, axis=1), color='g', label='PyTree')
+    # ax1.plot(axis, s)
+    # # ax1.axhline(np.mean(bm), color='r')
     # ax1.tick_params(axis='y', labelcolor='k')
     #
     # ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
     #
     # ax2.set_ylabel('time', color='k')  # we already handled the x-label with ax1
-    # ax2.plot(axis, np.mean(t_sgd, axis=1), color='r', linestyle='dashed')
-    # ax2.plot(axis, np.mean(t_adagrad, axis=1), color='b', linestyle='dashed')
-    # ax2.plot(axis, np.mean(t_momentum, axis=1), color='g', linestyle='dashed')
+    # ax2.plot(axis, t, linestyle='dashed')
     # ax2.tick_params(axis='y', labelcolor='k')
     #
     # fig.tight_layout()  # otherwise the right y-label is slightly clipped

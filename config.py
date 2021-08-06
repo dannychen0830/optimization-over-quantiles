@@ -52,7 +52,7 @@ train_arg.add_argument('--cvar', type=int, default=100, help='the percent of low
 # Misc
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--framework', '-fr', type=str, \
-                      choices= ["NES", "RNN", "KaMIS", "Exact", "sLS", "GNN"], \
+                      choices= ["NES", "RNN", "KaMIS", "Exact", "sLS", "GNN", "BM"], \
                       default='NES', help='Options for algorithms')
 misc_arg.add_argument('--dir', type=str, default='')
 misc_arg.add_argument('--num_gpu', type=int, default=0)
