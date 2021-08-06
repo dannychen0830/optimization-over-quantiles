@@ -15,8 +15,8 @@ from RNN.RNN_main import run_RNN
 from KaMIS.KaMIS import run_KaMIS
 from local_search import simple_local_search_parallel
 from Exact.Exact import run_exact
-from GNN.GCN_main import run_GCN
-from BM import run_manopt
+# from GNN.GCN_main import run_GCN
+# from BM import run_manopt
 
 
 # main function, runs the corresponding algorithm by directing to the right folder
@@ -68,21 +68,21 @@ def main(cf, seed):
     elif cf.framework == "Exact":
         data = nx.to_numpy_array(G)
         MIS_size, time_elapsed = run_exact(data)
-    elif cf.framework == "GNN":
-        MIS_size = 0
-        time_elapsed = 0
-        for sub in list:
-            data = nx.to_numpy_array(G.subgraph(sub))
-            if data.shape[0] == 1:
-                MIS_size += 1
-            else:
-                subset, sub_time, assignment = run_GCN(cf, data)
-                if check_solution(data, assignment):
-                    MIS_size += subset
-                    time_elapsed += sub_time
-    elif cf.framework == 'BM':
-        data = nx.to_numpy_array(G)
-        MIS_size, time_elapsed = run_manopt(cf, data)
+    # elif cf.framework == "GNN":
+    #     MIS_size = 0
+    #     time_elapsed = 0
+    #     for sub in list:
+    #         data = nx.to_numpy_array(G.subgraph(sub))
+    #         if data.shape[0] == 1:
+    #             MIS_size += 1
+    #         else:
+    #             subset, sub_time, assignment = run_GCN(cf, data)
+    #             if check_solution(data, assignment):
+    #                 MIS_size += subset
+    #                 time_elapsed += sub_time
+    # elif cf.framework == 'BM':
+    #     data = nx.to_numpy_array(G)
+    #     MIS_size, time_elapsed = run_manopt(cf, data)
     else:
         raise Exception("unknown framework")
 
