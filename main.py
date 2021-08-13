@@ -242,7 +242,7 @@ def append_file(file, data):
 
 
 if __name__ == '__main__':
-    # single_run()
+    single_run()
 
     min_size = 10
     d_size = 5
@@ -250,7 +250,7 @@ if __name__ == '__main__':
 
     num_rep = 10
 
-    multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
+    # multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
     # multiple_run_size(min_size, d_size, max_size, num_rep)
     # compare_batch_size(2000, 2000, 12000, 5)
     # print(np.load('./output/mean_size.npy'))
@@ -292,11 +292,15 @@ if __name__ == '__main__':
     # t_g = np.concatenate((np.load('./output/GNN_369_5_time.npy'), np.zeros(shape=[6,10])), axis=0)
     #
     #
-    # s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=220, step=30)))
+    s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=250, step=30)))
     #
     # s_axis = np.arange(start=min_size, stop=max_size, step=d_size)
-    # s_k = np.load('./output/maxcut_CVar_1_size.npy')
-    # t_k = np.load('./output/maxcut_CVar_1_time.npy')
+    s_k = np.concatenate((np.load('./output/netket_CVar_10_size.npy'), np.load('./output/netket_CVar_10_s_size.npy')), axis=0)
+    t_k = np.concatenate((np.load('./output/netket_CVar_10_time.npy'), np.load('./output/netket_CVar_10_s_time.npy')), axis=0)
+    s_n = np.concatenate((np.load('./output/netket_CVar_25_size.npy'), np.load('./output/netket_CVar_25_s_size.npy')), axis=0)
+    t_n = np.concatenate((np.load('./output/netket_CVar_25_time.npy'), np.load('./output/netket_CVar_25_s_time.npy')), axis=0)
+    s_c = np.concatenate((np.load('./output/netket_CVar_100_size.npy'), np.load('./output/netket_CVar_100_s_size.npy')), axis=0)
+    t_c = np.concatenate((np.load('./output/netket_CVar_100_time.npy'), np.load('./output/netket_CVar_100_s_time.npy')), axis=0)
     # s_n = np.load('./output/maxcut_CVar_10_size.npy')
     # t_n = np.load('./output/maxcut_CVar_10_time.npy')
     # s_c = np.load('./output/maxcut_CVar_25_size.npy')
@@ -305,20 +309,20 @@ if __name__ == '__main__':
     # t_g = np.load('./output/maxcut_CVar_100_time.npy')
     # #
     # plt.figure(1)
-    # plt.errorbar(s_axis, np.mean(s_k, axis=1), yerr=[np.mean(s_k, axis=1)-np.min(s_k, axis=1), np.max(s_k, axis=1)-np.mean(s_k, axis=1)], color='b', label='alpha = 0.01')
-    # plt.errorbar(s_axis, np.mean(s_n, axis=1), yerr=[np.mean(s_n, axis=1)-np.min(s_n, axis=1), np.max(s_n, axis=1)-np.mean(s_n, axis=1)], color='m', label='alpha = 0.1')
-    # plt.errorbar(s_axis, np.mean(s_c, axis=1), yerr=[np.mean(s_c, axis=1)-np.min(s_c, axis=1), np.max(s_c, axis=1)-np.mean(s_c, axis=1)], color='r', label='alpha = 0.25')
-    # plt.errorbar(s_axis, np.mean(s_g, axis=1), yerr=[np.mean(s_g, axis=1)-np.min(s_g, axis=1), np.max(s_g, axis=1)-np.mean(s_g, axis=1)], color='c', label='alpha = 1')
+    # plt.errorbar(s_axis, np.mean(s_k, axis=1), yerr=[np.mean(s_k, axis=1)-np.min(s_k, axis=1), np.max(s_k, axis=1)-np.mean(s_k, axis=1)], color='b', label='alpha = 0.1')
+    # plt.errorbar(s_axis, np.mean(s_n, axis=1), yerr=[np.mean(s_n, axis=1)-np.min(s_n, axis=1), np.max(s_n, axis=1)-np.mean(s_n, axis=1)], color='m', label='alpha = 0.25')
+    # plt.errorbar(s_axis, np.mean(s_c, axis=1), yerr=[np.mean(s_c, axis=1)-np.min(s_c, axis=1), np.max(s_c, axis=1)-np.mean(s_c, axis=1)], color='r', label='alpha = 1')
+    # # plt.errorbar(s_axis, np.mean(s_g, axis=1), yerr=[np.mean(s_g, axis=1)-np.min(s_g, axis=1), np.max(s_g, axis=1)-np.mean(s_g, axis=1)], color='c', label='alpha = 1')
     # plt.xlabel('number of vertices')
     # plt.ylabel('size of the indepedent set')
     # plt.legend()
-    #
+    # #
     # plt.figure(3)
     # plt.yscale('log')
-    # plt.errorbar(s_axis, np.mean(t_k, axis=1), yerr=np.std(t_k, axis=1), color='b', label='alpha = 0.01')
-    # plt.errorbar(s_axis, np.mean(t_n, axis=1), yerr=np.std(t_n, axis=1), color='m', label='alpha = 0.1')
-    # plt.errorbar(s_axis, np.mean(t_c, axis=1), yerr=np.std(t_c, axis=1), color='r', label='alpha = 0.25')
-    # plt.errorbar(s_axis, np.mean(t_g, axis=1), yerr=np.std(t_g, axis=1), color='c', label='alpha = 1')
+    # plt.errorbar(s_axis, np.mean(t_k, axis=1), yerr=np.std(t_k, axis=1), color='b', label='alpha = 0.1')
+    # plt.errorbar(s_axis, np.mean(t_n, axis=1), yerr=np.std(t_n, axis=1), color='m', label='alpha = 0.25')
+    # plt.errorbar(s_axis, np.mean(t_c, axis=1), yerr=np.std(t_c, axis=1), color='r', label='alpha = 1')
+    # # plt.errorbar(s_axis, np.mean(t_g, axis=1), yerr=np.std(t_g, axis=1), color='c', label='alpha = 1')
     # plt.xlabel('number of vertices')
     # plt.ylabel('time used (log scale)')
     # plt.legend()
@@ -327,7 +331,7 @@ if __name__ == '__main__':
     # plt.plot(s_axis, np.max(s_k, axis=1), color='b', label='KaMIS')
     # plt.plot(s_axis, np.max(s_n, axis=1), color='m', label='r-rbm')
     # plt.plot(s_axis, np.max(s_c, axis=1), color='r', label='c-rbm')
-    # # plt.plot(s_axis, np.max(s_g, axis=1), color='c', label='GNN')
+    # plt.plot(s_axis, np.max(s_g, axis=1), color='c', label='GNN')
     # plt.xlabel('number of vertices')
     # plt.ylabel('maximum independent set found')
     # plt.legend()
