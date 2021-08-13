@@ -42,6 +42,7 @@ def run_netket(cf, data, seed):
     else:
         sr = None
 
+    print(cf.cvar)
     vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
     gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
 
