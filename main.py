@@ -292,15 +292,15 @@ if __name__ == '__main__':
     # t_g = np.concatenate((np.load('./output/GNN_369_5_time.npy'), np.zeros(shape=[6,10])), axis=0)
     #
     #
-    s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=250, step=30)))
+    # s_axis = np.concatenate((np.arange(start=min_size, stop=max_size, step=d_size), np.arange(start=70, stop=250, step=30)))
     #
     # s_axis = np.arange(start=min_size, stop=max_size, step=d_size)
-    s_k = np.concatenate((np.load('./output/netket_CVar_10_size.npy'), np.load('./output/netket_CVar_10_s_size.npy')), axis=0)
-    t_k = np.concatenate((np.load('./output/netket_CVar_10_time.npy'), np.load('./output/netket_CVar_10_s_time.npy')), axis=0)
-    s_n = np.concatenate((np.load('./output/netket_CVar_25_size.npy'), np.load('./output/netket_CVar_25_s_size.npy')), axis=0)
-    t_n = np.concatenate((np.load('./output/netket_CVar_25_time.npy'), np.load('./output/netket_CVar_25_s_time.npy')), axis=0)
-    s_c = np.concatenate((np.load('./output/netket_CVar_100_size.npy'), np.load('./output/netket_CVar_100_s_size.npy')), axis=0)
-    t_c = np.concatenate((np.load('./output/netket_CVar_100_time.npy'), np.load('./output/netket_CVar_100_s_time.npy')), axis=0)
+    # s_k = np.concatenate((np.load('./output/netket_CVar_10_size.npy'), np.load('./output/netket_CVar_10_s_size.npy')), axis=0)
+    # t_k = np.concatenate((np.load('./output/netket_CVar_10_time.npy'), np.load('./output/netket_CVar_10_s_time.npy')), axis=0)
+    # s_n = np.concatenate((np.load('./output/netket_CVar_25_size.npy'), np.load('./output/netket_CVar_25_s_size.npy')), axis=0)
+    # t_n = np.concatenate((np.load('./output/netket_CVar_25_time.npy'), np.load('./output/netket_CVar_25_s_time.npy')), axis=0)
+    # s_c = np.concatenate((np.load('./output/netket_CVar_100_size.npy'), np.load('./output/netket_CVar_100_s_size.npy')), axis=0)
+    # t_c = np.concatenate((np.load('./output/netket_CVar_100_time.npy'), np.load('./output/netket_CVar_100_s_time.npy')), axis=0)
     # s_n = np.load('./output/maxcut_CVar_10_size.npy')
     # t_n = np.load('./output/maxcut_CVar_10_time.npy')
     # s_c = np.load('./output/maxcut_CVar_25_size.npy')
