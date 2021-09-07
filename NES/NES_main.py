@@ -49,26 +49,40 @@ def run_netket(cf, data, seed):
     # vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
     # gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
 
-    # optimize with COBYLA
-    maxiter = cf.num_of_iterations
-    optimizer = COBYLA(maxiter=maxiter)
-    num_param = data.shape[0]**2 + 2*data.shape[0]
+    if cf.cvar < 101:
+        # optimize with COBYLA
+        maxiter = cf.num_of_iterations
+        optimizer = COBYLA(maxiter=maxiter)
+        num_param = data.shape[0]**2 + 2*data.shape[0]
 
-    obj = Objective(cf, data)
-    initial_point = 0.01*jax.random.uniform(jax.random.PRNGKey(666), shape=[num_param])
-    start_time = time.time()
-    optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+        obj = Objective(cf, data)
+        initial_point = 0.01*jax.random.uniform(jax.random.PRNGKey(666), shape=[num_param])
+        start_time = time.time()
+        optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
 
-    # gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
-    end_time = time.time()
-    a = np.array(obj.get_history())
-    a.reshape([len(obj.get_history()),1])
-    name = 'cvar_3_' + str(cf.cvar) + '_history.npy'
-    np.save(name, a)
+        # gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
+        end_time = time.time()
+        a = np.array(obj.get_history())
+        a.reshape([len(obj.get_history()),1])
+        name = 'cvar_3_' + str(cf.cvar) + '_history.npy'
+        np.save(name, a)
 
-    # plot the final node assignment if specified
-    size = 0
-    assignment = obj.good_sample
+        # plot the final node assignment if specified
+        size = 0
+        assignment = obj.good_sample
+    else:
+        cf.cvar = 100
+        vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
+        gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
+
+        # run algorithm
+        start_time = time.time()
+        gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
+        end_time = time.time()
+
+        # plot the final node assignment if specified
+        size = 0
+        assignment = gs.get_good_sample()
 
     G = nx.from_numpy_matrix(data)
     pos = nx.circular_layout(G)
