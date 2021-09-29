@@ -31,7 +31,7 @@ net_arg.add_argument('--num_units', type=int, default=100, help='the number of u
 
 # Data
 data_arg = add_argument_group('Data')
-data_arg.add_argument('--pb_type', type=str, choices=["maxcut", "maxindp"], default="maxindp", help='The problem type')
+data_arg.add_argument('--pb_type', type=str, choices=["maxcut", "maxindp","transising"], default="maxindp", help='The problem type')
 data_arg.add_argument('--batch_size', '-b', type=int, default=128, help='The batch size in each iteration')
 data_arg.add_argument('--input_size', type=int, default=10, help='Number of spins in the input')
 data_arg.add_argument('--num_of_iterations', '-ni', type=int, default=0, help='Num of iterations to benchmark')
@@ -48,6 +48,7 @@ train_arg.add_argument('--optimizer',
 train_arg.add_argument('--use_sr', type=str2bool, default=True, help='use stochastic reconfiguration for training')
 train_arg.add_argument('--decay_factor', type=float, default=1.0, help='Training decay factor')
 train_arg.add_argument('--cvar', type=int, default=100, help='the percent of lower tail used for graident computation')
+train_arg.add_argument('--nchain', type=int, default=16, help='the number of chains for Metropolis-Hastings')
 
 # Misc
 misc_arg = add_argument_group('Misc')

@@ -159,37 +159,38 @@ def multiple_run_size(min_size, d_size, max_size, num_rep):
     np.save('./output/' + cf.save_file + "_time", time_elapsed)
 
 
-def multiple_run_size_parallel(min_size, d_size, max_size, num_rep):
+def multiple_run_size_parallel(size_list, num_rep):
     cf, unparsed = get_config()
 
     "For multiple runs and comparisons"
     # varying size
-    num = int((max_size - min_size) / d_size)
+    num = len(size_list)
 
     seed = 666
 
     MIS_size = np.zeros(shape=[num, num_rep])
     time_elapsed = np.zeros(shape=[num, num_rep])
 
-    size = min_size
     ptr = 0
-    for big_count in range(num):
-        param = []
+    param = []
+    for size in size_list:
         for small_count in range(num_rep):
-            param.append([seed+ptr, size])
+            param.append([seed + ptr, size])
             ptr += 1
 
-        pool = mp.Pool(processes=num_rep)
-        func = functools.partial(submain_size, cf=cf)
-        set, time = zip(*pool.map(func, param))
+    pool = mp.Pool(processes=4)
+    func = functools.partial(submain_size, cf=cf)
+    set, time = zip(*pool.map(func, param))
 
-        MIS_size[big_count,:] = set
-        time_elapsed[big_count,:] = time
+    ptr = 0
+    for i in range(num):
+        for j in range(num_rep):
+            MIS_size[i, j] = set[ptr]
+            time_elapsed[i, j] = time[ptr]
+            ptr += 1
 
-        size += d_size
-
-    np.save('./output/'+cf.save_file + "_size", MIS_size)
-    np.save('./output/'+cf.save_file + "_time", time_elapsed)
+    np.save('./output_paper/' + cf.save_file + "_size", MIS_size)
+    np.save('./output_paper/' + cf.save_file + "_time", time_elapsed)
 
 
 def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
@@ -225,6 +226,7 @@ def submain_size(param, cf):
     set_size, duration = main(cf, seed)
     return set_size, duration
 
+
 def submain_batch(seed, cf):
     np.random.seed(seed)
     tf.compat.v1.random.set_random_seed(seed)
@@ -244,13 +246,38 @@ def append_file(file, data):
 if __name__ == '__main__':
     single_run()
 
-    min_size = 10
-    d_size = 5
-    max_size = 70
-
+    size = [50, 100, 200, 300, 400, 500]
     num_rep = 10
 
-    # multiple_run_size_parallel(min_size, d_size, max_size, num_rep)
+    # alpha = [10, 25, 100]
+    # b = [40000, 16000, 4000]
+    # for i in range(len(alpha)):
+    #     cf, unparsed = get_config()
+    #     cf.cvar = alpha[i]
+    #     cf.batch_size = b[i]
+    #     print(cf.cvar)
+    #     print(cf.batch_size)
+    #     seed = cf.random_seed
+    #     np.random.seed(seed)
+    #     tf.compat.v1.random.set_random_seed(seed)
+    #     random.seed(seed)
+    #
+    #     score, time = main(cf, seed)
+    #
+    # c10 = np.load('cvar_4_10_history.npy')
+    # c25 = np.load('cvar_4_25_history.npy')
+    # c100 = np.load('cvar_4_100_history.npy')
+    # s = np.arange(start=1, stop=501)
+    # plt.plot(s, c10, label='alpha = 0.1')
+    # plt.plot(s, c25, label='alpha = 0.25')
+    # plt.plot(s, c100, label='alpha = 1')
+    # plt.legend()
+    # plt.xlabel('number of iterations')
+    # plt.ylabel('average energy')
+    #
+    # plt.show()
+
+    # multiple_run_size_parallel(size, num_rep)
     # multiple_run_size(min_size, d_size, max_size, num_rep)
     # compare_batch_size(2000, 2000, 12000, 5)
     # print(np.load('./output/mean_size.npy'))
