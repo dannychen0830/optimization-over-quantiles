@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from NES.NES_energy import MIS_energy
 from NES.NES_energy import Maxcut_energy
+from NES.NES_energy import Transverse_Ising_Energy
 
 
 # run NES using netket
@@ -19,6 +20,8 @@ def run_netket(cf, data, seed):
         hamiltonian, graph, hilbert = MIS_energy(cf, data)
     if cf.pb_type == "maxcut":
         hamiltonian, graph, hilbert = Maxcut_energy(cf, data)
+    if cf.pb_type == "transising":
+        hamiltonian, graph, hilbert = Transverse_Ising_Energy(cf, data)
 
     # build model
     if cf.model_name == "rbm":
@@ -58,13 +61,13 @@ def run_netket(cf, data, seed):
         obj = Objective(cf, data)
         initial_point = 0.01*jax.random.uniform(jax.random.PRNGKey(666), shape=[num_param])
         start_time = time.time()
-        optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+        x, fun, nfev = optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
 
         # gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
         end_time = time.time()
         a = np.array(obj.get_history())
         a.reshape([len(obj.get_history()),1])
-        name = 'cvar_3_' + str(cf.cvar) + '_history.npy'
+        name = 'cvar_4_' + str(cf.cvar) + '_history.npy'
         np.save(name, a)
 
         # plot the final node assignment if specified
@@ -99,6 +102,12 @@ def run_netket(cf, data, seed):
         for i in range(data.shape[0]):
             for j in range(i + 1, data.shape[0]):
                 if data[i, j] == 1 and assignment[i] + assignment[j] == 0:
+                    size += 1
+
+    if cf.pb_type == 'maxcut':
+        for i in range(data.shape[0]):
+            for j in range(i + 1, data.shape[0]):
+                if data[i, j] == 1 and assignment[i]*assignment[j] == -1:
                     size += 1
 
     if cf.print_assignment:
@@ -174,9 +183,12 @@ class Objective:
         self.t2 = 0
         self.t3 = 0
         self.t5 = 0
+        self.iter = 1
 
     def evaluate(self, param):
-        # print('optimization: ', time.time() - self.t5)
+        print('optimization: ', time.time() - self.t5)
+        print('iteration ', self.iter)
+        self.iter += 1
 
         s = time.time()
         # setting up variational quantum state:
@@ -189,13 +201,16 @@ class Objective:
         t1 = time.time()
         model = nk.models.RBM(alpha=self.cf.width, kernel_init=custom_init(kernel), hidden_bias_init=custom_init(bias), visible_bias_init=custom_init(vis_bias))
         t2 = time.time()
-        # print('set up model:', t2-t1)
+        print('set up model:', t2-t1)
         # set up graph and sampler
         t1 = time.time()
-        hamiltonian, graph, hilbert = MIS_energy(self.cf, self.data)
+        if self.cf.pb_type == 'maxindp':
+            hamiltonian, graph, hilbert = MIS_energy(self.cf, self.data)
+        if self.cf.pb_type == 'transising':
+            hamiltonian, graph, hilbert = Transverse_Ising_Energy(self.cf, self.data)
         t2 = time.time()
         # print('set up MIS energy:', t2-t1)
-        sampler = nk.sampler.MetropolisLocal(hilbert=hilbert)
+        sampler = nk.sampler.MetropolisLocal(hilbert=hilbert, n_chains=self.cf.nchain)
         # create variational quantum state
         t3 = time.time()
         vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=self.cf.batch_size)
@@ -204,16 +219,17 @@ class Objective:
         # print('number of samples:', vs.n_samples)
         e = time.time()
         self.t1 = e-s
-        # print('setting up vqs: ', self.t1)
+        print('setting up vqs: ', self.t1)
 
         s = time.time()
         # sample from RBM
         samples = vs.sample()
+        del vs
         samples = samples.reshape((-1, samples.shape[-1]))
         num_samples = samples.shape[0]
         e = time.time()
         self.t2 = e-s
-        # print('sampling: ', self.t2)
+        print('sampling: ', self.t2)
 
 
         s = time.time()
@@ -231,15 +247,30 @@ class Objective:
         count = {}
         for i in range(bit_string.shape[0]):
             count[str(bit_string[i,:])] = unique_count[i]
-
+        # del bit_string
+        # del unique_count
         t1 = time.time()
         # print('counting: ',t1-s)
 
 
         # calculate local energy
-
-        H = self.cf.penalty * self.data - np.eye(self.data.shape[0])
-        O_loc = np.array([np.dot(np.dot(np.transpose((x + 1) / 2), H), (x + 1) / 2).squeeze() for x in samples])
+        if self.cf.pb_type == 'maxindp':
+            H = self.cf.penalty * self.data - np.eye(self.data.shape[0])
+            O_loc = np.array([np.dot(np.dot(np.transpose((x + 1) / 2), H), (x + 1) / 2).squeeze() for x in samples])
+        if self.cf.pb_type == 'maxcut':
+            H = self.data
+            O_loc = np.array([np.dot(np.dot(np.transpose(x), H), x).squeeze() for x in samples])
+        else:
+            H = -1*self.data/2
+            # O_loc = np.array([np.dot(np.dot(np.transpose(x), H), x).squeeze() + self.data.shape[0]/2 for x in samples])
+            O_loc = np.array([np.sum([(np.dot(np.dot(np.transpose(x), H), y).squeeze() + np.sum((np.multiply(x,y)-1)/2))*np.sqrt(count[str(y)]/count[str(x)]) for y in bit_string]) for x in samples])
+            # O_loc = np.zeros(samples.shape[0])
+            # O_loc = np.array([np.dot(np.dot(np.transpose(x), H), x).squeeze() + np.sum(-1*x) for x in samples])
+            # for i in range(samples.shape[0]):
+            #     x = samples[i,:]
+            #     O_loc[i] = 0
+            #     for y in bit_string:
+            #         O_loc[i] += (np.dot(np.dot(np.transpose(x), H), y).squeeze() + self.data.shape[0]/2)*(count[str(y)]/count[str(x)])
 
         # O_loc = np.zeros(shape=[samples.shape[0]])
         # eloc_table = {}
@@ -256,8 +287,10 @@ class Objective:
         # order energy and samples in non-decreasing order
         idx = np.argsort(O_loc)
         ordered_samples = samples[idx]
+        del samples
         self.good_sample = ordered_samples[0]
         ordered_O_loc = O_loc[idx]
+        del O_loc
 
         t3 = time.time()
         # print('sorting: ', t3 - t2)
@@ -265,13 +298,16 @@ class Objective:
         alpha = self.cf.cvar / 100
         E_cvar = cvar_obj(ordered_samples, count, ordered_O_loc, alpha)
         e = time.time()
+        del ordered_samples
+        del ordered_O_loc
         self.t3 = e-s
         # print('evaluate objective: ', e - t3)
-        # print('calculate cvar: ', self.t3)
+        print('calculate cvar: ', self.t3)
         self.history.append(E_cvar)
 
         self.t5 = time.time()
 
+        print('cvar', E_cvar)
         return E_cvar
 
     def get_history(self):
