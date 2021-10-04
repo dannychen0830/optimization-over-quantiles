@@ -61,8 +61,15 @@ def run_netket(cf, data, seed):
         obj = Objective(cf, data)
         initial_point = 0.01*jax.random.uniform(jax.random.PRNGKey(666), shape=[num_param])
         start_time = time.time()
-        x, fun, nfev = optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
-
+        # optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+        for iter in range(cf.num_of_iterations):
+            optimizer = COBYLA(maxiter=1)
+            x, fun, nfev = optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+            initial_point = x
+            del optimizer
+            del fun
+            del nfev
+            del x
         # gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
         end_time = time.time()
         a = np.array(obj.get_history())
@@ -185,6 +192,13 @@ class Objective:
         self.t5 = 0
         self.iter = 1
 
+        if self.cf.pb_type == 'maxindp':
+            self.hamiltonian, self.graph, self.hilbert = MIS_energy(self.cf, self.data)
+        self.sampler = nk.sampler.MetropolisLocal(hilbert=self.hilbert, n_chains=self.cf.nchain)
+
+        # if self.cf.pb_type == 'transising':
+        #     hamiltonian, graph, hilbert = Transverse_Ising_Energy(self.cf, self.data)
+
     def evaluate(self, param):
         print('optimization: ', time.time() - self.t5)
         print('iteration ', self.iter)
@@ -204,16 +218,13 @@ class Objective:
         print('set up model:', t2-t1)
         # set up graph and sampler
         t1 = time.time()
-        if self.cf.pb_type == 'maxindp':
-            hamiltonian, graph, hilbert = MIS_energy(self.cf, self.data)
-        if self.cf.pb_type == 'transising':
-            hamiltonian, graph, hilbert = Transverse_Ising_Energy(self.cf, self.data)
+
         t2 = time.time()
         # print('set up MIS energy:', t2-t1)
-        sampler = nk.sampler.MetropolisLocal(hilbert=hilbert, n_chains=self.cf.nchain)
+
         # create variational quantum state
         t3 = time.time()
-        vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=self.cf.batch_size)
+        vs = nk.vqs.MCState(sampler=self.sampler, model=model, n_samples=self.cf.batch_size)
         t4 = time.time()
         # print('set up vs:', t4-t3)
         # print('number of samples:', vs.n_samples)
@@ -257,7 +268,7 @@ class Objective:
         if self.cf.pb_type == 'maxindp':
             H = self.cf.penalty * self.data - np.eye(self.data.shape[0])
             O_loc = np.array([np.dot(np.dot(np.transpose((x + 1) / 2), H), (x + 1) / 2).squeeze() for x in samples])
-        if self.cf.pb_type == 'maxcut':
+        elif self.cf.pb_type == 'maxcut':
             H = self.data
             O_loc = np.array([np.dot(np.dot(np.transpose(x), H), x).squeeze() for x in samples])
         else:
