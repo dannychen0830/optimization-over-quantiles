@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 
 from NES.NES_energy import MIS_energy
 from NES.NES_energy import Maxcut_energy
-from NES.NES_energy import Transverse_Ising_Energy
 
 
 # run NES using netket
