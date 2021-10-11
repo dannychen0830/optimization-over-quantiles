@@ -218,9 +218,11 @@ def multiple_run_size_parallel(size_list, num_rep):
 
 def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
     cf, unparsed = get_config()
+    og_batch = cf.batch_size
     # num = int((max_batch - min_batch) / d_batch)
     # alpha = [0.05, 0.1, 0.2, 0.4, 0.8]
     alpha = [5, 10, 25]
+    batch_size = [int(og_batch/(a/100)) for a in alpha]
     num = len(alpha)
 
     size_n = np.zeros(shape=[num, num_rep])
@@ -234,7 +236,7 @@ def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
 
     for i in range(num):
         for j in range(num_rep):
-            size_n[i,j], time_n[i,j] = submain_size([seed,alpha[i]],cf)
+            size_n[i,j], time_n[i,j] = submain_size([seed+j,alpha[i], batch_size[i]],cf)
 
     # for i in range(num):
     #     for j in range(num_rep):
@@ -259,7 +261,7 @@ def submain_size(param, cf):
     tf.compat.v1.random.set_random_seed(seed)
     random.seed(seed)
     cf.cvar = param[1]
-    cf.batch_size = cf.batch_size/(cf.cvar/100)
+    cf.batch_size = param[2]
     # print("cvar: ", cf.cvar, " sample size", cf.batch_size)
     set_size, duration = main(cf, seed)
     return set_size, duration
