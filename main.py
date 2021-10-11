@@ -30,6 +30,7 @@ def main(cf, seed):
     bound = None
     # run with algorithm options
     print("*** Running {} ***".format(cf.framework))
+    print(cf.cvar)
 
     if cf.framework == "NES":
         MIS_size = 0
@@ -193,36 +194,73 @@ def multiple_run_size_parallel(size_list, num_rep):
     np.save('./output_paper/' + cf.save_file + "_time", time_elapsed)
 
 
+# def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
+#     cf, unparsed = get_config()
+#     num = int((max_batch - min_batch) / d_batch)
+#
+#     size_n = np.zeros(shape=[num, num_rep])
+#     time_n = np.zeros(shape=[num, num_rep])
+#
+#     seed = 666
+#
+#     cf.batch_size = min_batch
+#     for i in range(num):
+#         seed_list = []
+#         for j in range(num_rep):
+#             seed_list.append(seed+j)
+#         pool = mp.Pool(processes=num_rep)
+#         func = functools.partial(submain_batch, cf=cf)
+#         size_n[i,:], time_n[i,:] = zip(*pool.map(func, seed_list))
+#         cf.batch_size += d_batch
+#
+#     np.save('./output/compare_' + cf.save_file + "_size", size_n)
+#     np.save('./output/compare_' + cf.save_file + "_time", time_n)
+
 def compare_batch_size(min_batch, d_batch, max_batch, num_rep):
     cf, unparsed = get_config()
-    num = int((max_batch - min_batch) / d_batch)
+    # num = int((max_batch - min_batch) / d_batch)
+    # alpha = [0.05, 0.1, 0.2, 0.4, 0.8]
+    alpha = [5, 10, 25]
+    num = len(alpha)
 
     size_n = np.zeros(shape=[num, num_rep])
     time_n = np.zeros(shape=[num, num_rep])
 
     seed = 666
 
-    cf.batch_size = min_batch
+    # cf.batch_size = min_batch
+
+    param = []
+
     for i in range(num):
-        seed_list = []
         for j in range(num_rep):
-            seed_list.append(seed+j)
-        pool = mp.Pool(processes=num_rep)
-        func = functools.partial(submain_batch, cf=cf)
-        size_n[i,:], time_n[i,:] = zip(*pool.map(func, seed_list))
-        cf.batch_size += d_batch
+            size_n[i,j], time_n[i,j] = submain_size([seed,alpha[i]],cf)
+
+    # for i in range(num):
+    #     for j in range(num_rep):
+    #         param.append([seed+j, alpha[i]])
+    # pool = mp.Pool(processes=1)
+    # func = functools.partial(submain_size, cf=cf)
+    # s, t = zip(*pool.map(func, param))
+
+    # ptr = 0
+    # for i in range(num):
+    #    for j in range(num_rep):
+    #         size_n[i,j] = s[ptr]
+    #         time_n[i,j] = t[ptr]
+    #         ptr += 1
 
     np.save('./output/compare_' + cf.save_file + "_size", size_n)
     np.save('./output/compare_' + cf.save_file + "_time", time_n)
-
 
 def submain_size(param, cf):
     seed = param[0]
     np.random.seed(seed)
     tf.compat.v1.random.set_random_seed(seed)
     random.seed(seed)
-    cf.input_size = param[1]
-
+    cf.cvar = param[1]
+    cf.batch_size = cf.batch_size/(cf.cvar/100)
+    # print("cvar: ", cf.cvar, " sample size", cf.batch_size)
     set_size, duration = main(cf, seed)
     return set_size, duration
 
@@ -244,7 +282,7 @@ def append_file(file, data):
 
 
 if __name__ == '__main__':
-    single_run()
+    # single_run()
 
     size = [50, 100, 200, 300, 400, 500]
     num_rep = 10
@@ -279,7 +317,7 @@ if __name__ == '__main__':
 
     # multiple_run_size_parallel(size, num_rep)
     # multiple_run_size(min_size, d_size, max_size, num_rep)
-    # compare_batch_size(2000, 2000, 12000, 5)
+    compare_batch_size(2000, 2000, 12000, 1)
     # print(np.load('./output/mean_size.npy'))
 
     # file = open('list.txt','r')
