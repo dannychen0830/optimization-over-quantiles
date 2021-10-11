@@ -84,13 +84,13 @@ def run_netket(cf, data, seed):
         size = 0
         assignment = obj.good_sample
     else:
-        cf.cvar = 100
+        # cf.cvar = 100
         vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
         gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
 
         # run algorithm
         start_time = time.time()
-        gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
+        gs.run(out='result'+str(cf.cvar), n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
         samples = gs.state.samples
         end_time = time.time()
 
