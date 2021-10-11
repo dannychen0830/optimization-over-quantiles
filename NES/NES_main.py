@@ -1,8 +1,11 @@
+import sys
+
 import netket as nk
 import networkx as nx
 import jax
 from jax import numpy as jnp
 from qiskit.algorithms.optimizers import COBYLA
+import nevergrad as ng
 import time
 import json
 import numpy as np
@@ -10,6 +13,7 @@ import matplotlib.pyplot as plt
 
 from NES.NES_energy import MIS_energy
 from NES.NES_energy import Maxcut_energy
+# from NES.NES_energy import Transverse_Ising_Energy
 
 
 # run NES using netket
@@ -19,8 +23,8 @@ def run_netket(cf, data, seed):
         hamiltonian, graph, hilbert = MIS_energy(cf, data)
     if cf.pb_type == "maxcut":
         hamiltonian, graph, hilbert = Maxcut_energy(cf, data)
-    if cf.pb_type == "transising":
-        hamiltonian, graph, hilbert = Transverse_Ising_Energy(cf, data)
+    # if cf.pb_type == "transising":
+    #     hamiltonian, graph, hilbert = Transverse_Ising_Energy(cf, data)
 
     # build model
     if cf.model_name == "rbm":
@@ -51,7 +55,7 @@ def run_netket(cf, data, seed):
     # vs = nk.vqs.MCState(sampler=sampler, model=model, n_samples=cf.batch_size)
     # gs = nk.VMC(hamiltonian=hamiltonian, optimizer=op, variational_state=vs, preconditioner=sr, alpha=cf.cvar)
 
-    if cf.cvar < 101:
+    if cf.cvar < 0:
         # optimize with COBYLA
         maxiter = cf.num_of_iterations
         optimizer = COBYLA(maxiter=maxiter)
@@ -60,15 +64,15 @@ def run_netket(cf, data, seed):
         obj = Objective(cf, data)
         initial_point = 0.01*jax.random.uniform(jax.random.PRNGKey(666), shape=[num_param])
         start_time = time.time()
-        # optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
-        for iter in range(cf.num_of_iterations):
-            optimizer = COBYLA(maxiter=1)
-            x, fun, nfev = optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
-            initial_point = x
-            del optimizer
-            del fun
-            del nfev
-            del x
+        optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+        # for iter in range(cf.num_of_iterations):
+        #     optimizer = COBYLA(maxiter=1)
+        #     x, fun, nfev = optimizer.optimize(num_param, obj.evaluate, initial_point=initial_point)
+        #     initial_point = x
+        #     del optimizer
+        #     del fun
+        #     del nfev
+        #     del x
         # gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
         end_time = time.time()
         a = np.array(obj.get_history())
@@ -87,6 +91,7 @@ def run_netket(cf, data, seed):
         # run algorithm
         start_time = time.time()
         gs.run(out='result', n_iter=cf.num_of_iterations, save_params_every=cf.num_of_iterations, show_progress=True)
+        samples = gs.state.samples
         end_time = time.time()
 
         # plot the final node assignment if specified
@@ -170,7 +175,7 @@ def custom_init(x, dtype=jnp.float_):
     def init(key, shape, dtype=dtype):
         a = blank(x)
         return a
-    return init
+    return nk.jax.HashablePartial(init)
 
 
 @jax.jit
@@ -234,7 +239,8 @@ class Objective:
         s = time.time()
         # sample from RBM
         samples = vs.sample()
-        del vs
+        print('samples size: ', sys.getsizeof(samples))
+        vs = None
         samples = samples.reshape((-1, samples.shape[-1]))
         num_samples = samples.shape[0]
         e = time.time()
@@ -297,19 +303,20 @@ class Objective:
         # order energy and samples in non-decreasing order
         idx = np.argsort(O_loc)
         ordered_samples = samples[idx]
-        del samples
+        samples = None
         self.good_sample = ordered_samples[0]
         ordered_O_loc = O_loc[idx]
-        del O_loc
+        O_loc = None
 
         t3 = time.time()
         # print('sorting: ', t3 - t2)
 
         alpha = self.cf.cvar / 100
-        E_cvar = cvar_obj(ordered_samples, count, ordered_O_loc, alpha)
+        # E_cvar = cvar_obj(ordered_samples, count, ordered_O_loc, alpha)
+        E_cvar = np.mean(ordered_O_loc)
         e = time.time()
-        del ordered_samples
-        del ordered_O_loc
+        ordered_samples = None
+        ordered_O_loc = None
         self.t3 = e-s
         # print('evaluate objective: ', e - t3)
         print('calculate cvar: ', self.t3)
